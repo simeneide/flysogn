@@ -52,10 +52,6 @@ fig = go.Figure(go.Barpolar(
     opacity=0.8
 ))
 
-st.text("""
-Visualisering av metar-data fra storhogen for lettere å få en oversikt over vindforhold akkurat nå.
-""")
-
 fig.update_layout(
     template=None,
     polar = dict(
@@ -83,5 +79,8 @@ st.components.v1.html("""
 <iframe width="650" height="450" src="https://embed.windy.com/embed2.html?lat=61.010&lon=7.015&detailLat=61.249&detailLon=7.086&width=650&height=450&zoom=8&level=850h&overlay=wind&product=ecmwf&menu=&message=true&marker=&calendar=now&pressure=&type=map&location=coordinates&detail=true&metricWind=m%2Fs&metricTemp=%C2%B0C&radarRange=-1" frameborder="0"></iframe>
 """, height=450)
 
-
-st.text("Data hentet fra api.met.no")
+st.text("""
+Visualisering av metar-data fra storhogen for lettere å få en oversikt over vindforhold akkurat nå.
+Repo: https://github.com/simeneide/flysogn
+Data er hentet fra api.met.no
+""")
