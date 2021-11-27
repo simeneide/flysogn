@@ -8,7 +8,6 @@ from metar import Metar
 import plotly.graph_objects as go
 
 url_metar = "https://api.met.no/weatherapi/tafmetar/1.0/metar.txt?icao=ENSG"
-#url_metar = "https://www.ogimet.com/display_metars2.php?lang=en&lugar=ENSG&tipo=ALL&ord=REV&nil=SI&fmt=txt&ano=2021&mes=04&day=01&hora=09&anof=2021&mesf=04&dayf=27&horaf=09&minf=59&send=send"
 
 metar_strings = (
     requests
@@ -76,6 +75,27 @@ fig.update_layout(
     )
 )
 col2.plotly_chart(fig)
+
+#%% WINDY
+st.subheader("Windy nå 1500moh")
+st.components.v1.iframe(
+    src="https://embed.windy.com/embed2.html?lat=61.010&lon=7.015&detailLat=61.249&detailLon=7.086&width=650&height=450&zoom=8&level=850h&overlay=wind&product=ecmwf&menu=&message=true&marker=&calendar=now&pressure=&type=map&location=coordinates&detail=true&metricWind=m%2Fs&metricTemp=%C2%B0C&radarRange=-1",
+    height=450
+)
+
+#%% NETATMO
+st.components.v1.iframe(
+    src="https://weathermap.netatmo.com/?zoom=10&type=wind&param=wind&maplayer=Map&lat=61.30988839048675&lng=7.133899930132202&lang=en",
+    height=450
+)
+
+#%% Vindnå.no
+st.components.v1.iframe(
+    src="https://vindnå.no",
+    height=450
+)
+
+
 #%% Historical data
 fig = go.Figure(data=go.Scatter(x=df.time, y=df.wind_dir))
 fig.update_layout(title="Vindretning storhogen", xaxis_title="Tid", yaxis_title="Vindretning [°]")
@@ -85,14 +105,24 @@ fig = go.Figure(data=go.Scatter(x=df.time, y=df.wind_speed))
 fig.update_layout(title="Vindstyrke storhogen", xaxis_title="Tid", yaxis_title="Vind [m/s]", autosize=True)
 st.plotly_chart(fig)
 
-#%% WINDY
-st.subheader("Windy nå 1500moh")
-st.components.v1.html("""
-<iframe width="100%" height="450" src="https://embed.windy.com/embed2.html?lat=61.010&lon=7.015&detailLat=61.249&detailLon=7.086&width=650&height=450&zoom=8&level=850h&overlay=wind&product=ecmwf&menu=&message=true&marker=&calendar=now&pressure=&type=map&location=coordinates&detail=true&metricWind=m%2Fs&metricTemp=%C2%B0C&radarRange=-1" frameborder="0"></iframe>
-""", height=450)
 
 st.text("""
 Visualisering av metar-data fra storhogen for lettere å få en oversikt over vindforhold akkurat nå.
 Repo: https://github.com/simeneide/flysogn
 Data er hentet fra api.met.no
 """)
+
+
+#%%
+#%% Text forecast
+from lxml import etree as ET
+import requests
+r = requests.get("https://api.met.no/weatherapi/textforecast/2.0/landoverview")
+#import xml
+#import xml.etree.ElementTree as ET
+et = ET.fromstring(r.content)
+for child in et.findall("time"):
+    print(child.findall("*"))
+fc = et.xpath(".//time")[0].xpath(".//location")[0]
+
+fc.items()
