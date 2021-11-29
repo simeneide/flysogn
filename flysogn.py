@@ -76,6 +76,15 @@ fig.update_layout(
 )
 col2.plotly_chart(fig)
 
+#%% MOdvoberget
+st.components.v1.iframe(
+    src="https://widget.holfuy.com/?station=1550&su=m/s&t=C&lang=en&mode=detailed",
+    height=250
+)
+st.components.v1.iframe(
+    src="https://widget.holfuy.com/?station=1550&su=m/s&t=C&lang=en&mode=average&avgrows=32",
+    height=170
+)
 #%% WINDY
 st.subheader("Windy nå 1500moh")
 st.components.v1.iframe(
