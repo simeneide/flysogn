@@ -76,7 +76,7 @@ fig.update_layout(
 )
 col2.plotly_chart(fig)
 
-#%% MOdvoberget
+#%% Modvoberget
 st.components.v1.iframe(
     src="https://widget.holfuy.com/?station=1550&su=m/s&t=C&lang=en&mode=detailed",
     height=250
@@ -85,16 +85,11 @@ st.components.v1.iframe(
     src="https://widget.holfuy.com/?station=1550&su=m/s&t=C&lang=en&mode=average&avgrows=32",
     height=170
 )
+
 #%% WINDY
 st.subheader("Windy nå 1500moh")
 st.components.v1.iframe(
     src="https://embed.windy.com/embed2.html?lat=61.010&lon=7.015&detailLat=61.249&detailLon=7.086&width=650&height=450&zoom=8&level=850h&overlay=wind&product=ecmwf&menu=&message=true&marker=&calendar=now&pressure=&type=map&location=coordinates&detail=true&metricWind=m%2Fs&metricTemp=%C2%B0C&radarRange=-1",
-    height=450
-)
-
-#%% NETATMO
-st.components.v1.iframe(
-    src="https://weathermap.netatmo.com/?zoom=10&type=wind&param=wind&maplayer=Map&lat=61.30988839048675&lng=7.133899930132202&lang=en",
     height=450
 )
 
@@ -104,6 +99,17 @@ st.components.v1.iframe(
     height=450
 )
 
+#%% NETATMO
+st.components.v1.iframe(
+    src="https://weathermap.netatmo.com/?zoom=10&type=wind&param=wind&maplayer=Map&lat=61.30988839048675&lng=7.133899930132202&lang=en",
+    height=450
+)
+
+#%% IMAGES
+images = ["http://sognskisenter.org/webkam/parkering/image.jpg",
+"http://sognskisenter.org/webkam/rodekorshytta/image.jpg",
+"http://sognskisenter.org/webkam/mast16/image.jpg"]
+st.image(images, use_column_width=True)
 
 #%% Historical data
 fig = go.Figure(data=go.Scatter(x=df.time, y=df.wind_dir))
