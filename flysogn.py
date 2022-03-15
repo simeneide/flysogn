@@ -6,75 +6,46 @@ import pandas as pd
 import datetime
 from metar import Metar
 import plotly.graph_objects as go
+import plotly.express as px
 
-url_metar = "https://api.met.no/weatherapi/tafmetar/1.0/metar.txt?icao=ENSG"
+def get_storhogen_data():
+    url_metar = "https://api.met.no/weatherapi/tafmetar/1.0/metar.txt?icao=ENSG"
 
-metar_strings = (
-    requests
-    .get(url_metar)
-    .content
-    .decode()
-    .split("\n")
-)
-metar_strings = [s for s in metar_strings if s !=""]
-#%%
-metar_observations = []
-obs_list = []
-for i, s in enumerate(metar_strings):
-    try:
-        obs = Metar.Metar(s)
-        metar_observations.append(obs)
-        obs_storhogen = obs.string().split(" ")[-1]
-        sh_dir = int(obs_storhogen[:3])
-        sh_windspeed = int(obs_storhogen[3:5])
-
-        obs_list.append(
-            {
-                'location' : obs.station_id,
-                'time' : obs.time,
-                'wind_dir' : sh_dir, #obs.wind_dir.value(),
-                'wind_speed' : sh_windspeed*0.51# obs.wind_speed.value()
-                }
-        )
-    except:
-        pass
-
-df = pd.DataFrame(obs_list)
-#%% Presentation
-st.title("Flyinfo Storhogen")
-last_obs = obs_list[-1]
-col1, col2 = st.beta_columns(2)
-
-
-time_since_last = datetime.datetime.now()-last_obs['time']
-col1.markdown(f"""
-**time:** \t {last_obs['time']}  
-**Hours since reading **: \t {time_since_last.seconds/3600:.1f}  
-speed:  \t {last_obs['wind_speed']} m/s  
-direction: \t {last_obs['wind_dir']}°
-""")
-
-fig = go.Figure(go.Barpolar(
-    r=[last_obs['wind_speed']],
-    theta=[last_obs['wind_dir']],
-    width=[20],
-    marker_line_color="black",
-    marker_line_width=2,
-    opacity=0.8
-))
-
-fig.update_layout(
-    template=None,
-    polar = dict(
-      radialaxis_tickfont_size = 8,
-      angularaxis = dict(
-        tickfont_size=10,
-        rotation=90, # start position of angular axis
-        direction="clockwise"
-      )
+    metar_strings = (
+        requests
+        .get(url_metar)
+        .content
+        .decode()
+        .split("\n")
     )
-)
-col2.plotly_chart(fig)
+    metar_strings = [s for s in metar_strings if s !=""]
+    #%%
+    metar_observations = []
+    obs_list = []
+    for i, s in enumerate(metar_strings):
+        try:
+            obs = Metar.Metar(s)
+            metar_observations.append(obs)
+            obs_storhogen = obs.string().split(" ")[-1]
+            sh_dir = int(obs_storhogen[:3])
+            sh_windspeed = int(obs_storhogen[3:5])
+
+            obs_list.append(
+                {
+                    'location' : obs.station_id,
+                    'time' : obs.time,
+                    'wind_dir' : sh_dir, #obs.wind_dir.value(),
+                    'wind_speed' : sh_windspeed*0.51# obs.wind_speed.value()
+                    }
+            )
+        except:
+            pass
+    df = pd.DataFrame(obs_list)
+    return df
+
+
+#%% Presentation
+st.title("Flyinfo Sogn")
 
 #%% Modvoberget
 st.components.v1.iframe(
@@ -85,6 +56,44 @@ st.components.v1.iframe(
     src="https://widget.holfuy.com/?station=1550&su=m/s&t=C&lang=en&mode=average&avgrows=32",
     height=170
 )
+
+st.subheader("Storhogen")
+try:
+    
+    df_storhogen = get_storhogen_data()
+    last_obs = df_storhogen.tail(1).to_dict("records")[0]
+    time_since_last = datetime.datetime.now()-last_obs['time']
+    st.markdown(f"""
+    **time:** \t {last_obs['time']}  
+    **Hours since reading **: \t {time_since_last.seconds/3600:.1f}  
+    speed:  \t {last_obs['wind_speed']:.1f} m/s  
+    direction: \t {last_obs['wind_dir']}°
+    """)
+except:
+    pass
+
+fig = px.bar_polar(
+    df_storhogen.tail(1), 
+    r="wind_speed", 
+    theta="wind_dir", 
+    color="location",
+    color_discrete_sequence= px.colors.sequential.Plasma_r)
+fig.update_layout(
+    dragmode=False,
+    #template=None,
+    showlegend=True,
+    polar = dict(
+      radialaxis_tickfont_size = 15,
+      angularaxis = dict(
+        tickfont_size=10,
+        rotation=90, # start position of angular axis
+        direction="clockwise"
+      )
+    )
+)
+st.plotly_chart(fig)
+
+
 
 #%% WINDY
 st.subheader("Windy nå 1500moh")
