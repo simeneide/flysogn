@@ -121,11 +121,11 @@ images = ["http://sognskisenter.org/webkam/parkering/image.jpg",
 st.image(images, use_column_width=True)
 
 #%% Historical data
-fig = go.Figure(data=go.Scatter(x=df.time, y=df.wind_dir))
+fig = go.Figure(data=go.Scatter(x=df_storhogen.time, y=df_storhogen.wind_dir))
 fig.update_layout(title="Vindretning storhogen", xaxis_title="Tid", yaxis_title="Vindretning [°]")
 st.plotly_chart(fig)
 
-fig = go.Figure(data=go.Scatter(x=df.time, y=df.wind_speed))
+fig = go.Figure(data=go.Scatter(x=df_storhogen.time, y=df_storhogen.wind_speed))
 fig.update_layout(title="Vindstyrke storhogen", xaxis_title="Tid", yaxis_title="Vind [m/s]", autosize=True)
 st.plotly_chart(fig)
 
