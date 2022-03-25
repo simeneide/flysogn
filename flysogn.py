@@ -231,6 +231,7 @@ Data er hentet fra api.met.no
 
 #%%
 #%% Text forecast
+"""
 from lxml import etree as ET
 import requests
 r = requests.get("https://api.met.no/weatherapi/textforecast/2.0/landoverview")
@@ -242,3 +243,5 @@ for child in et.findall("time"):
 fc = et.xpath(".//time")[0].xpath(".//location")[0]
 
 fc.items()
+# %%
+"""
