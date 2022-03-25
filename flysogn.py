@@ -193,26 +193,6 @@ try:
 except:
     pass
 
-fig = px.bar_polar(
-    df_storhogen.tail(1), 
-    r="wind_strength", 
-    theta="wind_angle", 
-    color="location",
-    color_discrete_sequence= px.colors.sequential.Plasma_r)
-fig.update_layout(
-    dragmode=False,
-    #template=None,
-    showlegend=True,
-    polar = dict(
-      radialaxis_tickfont_size = 15,
-      angularaxis = dict(
-        tickfont_size=10,
-        rotation=90, # start position of angular axis
-        direction="clockwise"
-      )
-    )
-)
-st.plotly_chart(fig)
 #%%
 st.subheader("Live map")
 df = collect_netatmo_data()
