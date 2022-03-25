@@ -186,7 +186,7 @@ try:
     
     st.markdown(f"""
     **time:** \t {last_obs['time']}  
-    **Hours since reading **: \t {last_obs['hours_since_reading']:.1f}  
+    **Hours since reading**: \t {last_obs['hours_since_reading']:.1f}  
     speed:  \t {last_obs['wind_strength']:.1f} m/s  
     direction: \t {last_obs['wind_angle']}°
     """)
