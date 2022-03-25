@@ -7,6 +7,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 from metar import Metar
+import json
 import plotly.graph_objects as go
 import plotly.express as px
 px.set_mapbox_access_token(st.secrets['mapbox_token'])
@@ -41,14 +42,42 @@ def get_storhogen_data():
                 {
                     'location' : obs.station_id,
                     'time' : obs.time,
-                    'wind_dir' : sh_dir, #obs.wind_dir.value(),
-                    'wind_speed' : sh_windspeed*0.51# obs.wind_speed.value()
+                    'wind_angle' : sh_dir, 
+                    'wind_strength' : sh_windspeed*0.51
                     }
             )
         except:
             pass
     df = pd.DataFrame(obs_list)
+    df['lat'] = 61.1732881
+    df['lon'] = 7.1195861
+    df['altitude'] = 1170
+    df['name'] = "Storhogen"
+    df['hours_since_reading'] = (datetime.now()-df['time']).apply(lambda x: np.round(x.seconds/3600,1))
     return df
+
+
+#%%
+def collect_holfuy_data():
+    modva_raw = json.loads(requests.get(f"http://api.holfuy.com/live/?s=1550&pw={st.secrets['holfuy_secret']}=JSON&tu=C&su=m/s").content)
+
+    modva = {
+        'stationId' : 1550,
+        'lat' : 61.3454358,
+        'lon' : 7.1977754,
+        'altitude' : 900,
+        'name' : "Modvaberget",
+        'hours_since_reading' : 0
+    }
+
+    modva['lat'] = 61.3454358
+    modva['lon'] = 7.1977754
+    modva['altitude'] = 900
+    modva['name'] = modva_raw['stationName']
+    modva['wind_strength']= modva_raw['wind']['speed']
+    modva['wind_angle'] = modva_raw['wind']['direction']
+    modva['s'] = np.sqrt(modva_raw['wind']['speed'])/200
+    return pd.DataFrame([modva])
 
 #%% NETATMO AUTH
 def collect_netatmo_data():
@@ -67,7 +96,6 @@ def collect_netatmo_data():
     coord_ne = [6.76,61.646145]
 
     r = requests.get(f"https://api.netatmo.com/api/getpublicdata?lat_ne={coord_ne[1]}&lon_ne={coord_ne[0]}&lat_sw={coord_sw[1]}&lon_sw={coord_sw[0]}&required_data=wind&filter=true",  headers={'Authorization': f'Bearer {ws._access_token}'})
-    import json
     msg = json.loads(r.content)
     if r.status_code!=200: 
         print(r.content)
@@ -92,7 +120,6 @@ def collect_netatmo_data():
     df = pd.DataFrame(data).dropna()
     df['hours_since_reading'] = np.round(df['wind_timeutc'].apply(lambda epoch: (datetime.utcnow()-datetime.utcfromtimestamp(epoch)).seconds/3600), 1)
 
-    df.head()
     df['s'] = np.sqrt(df['wind_strength'])/500
     return df
 
@@ -150,26 +177,26 @@ st.components.v1.iframe(
     src="https://widget.holfuy.com/?station=1550&su=m/s&t=C&lang=en&mode=average&avgrows=32",
     height=170
 )
-
+#%%
 st.subheader("Storhogen")
 try:
     
     df_storhogen = get_storhogen_data()
     last_obs = df_storhogen.tail(1).to_dict("records")[0]
-    hours_since_reading = datetime.now()-last_obs['time']
+    
     st.markdown(f"""
     **time:** \t {last_obs['time']}  
-    **Hours since reading **: \t {hours_since_reading.seconds/3600:.1f}  
-    speed:  \t {last_obs['wind_speed']:.1f} m/s  
-    direction: \t {last_obs['wind_dir']}°
+    **Hours since reading **: \t {last_obs['hours_since_reading']:.1f}  
+    speed:  \t {last_obs['wind_strength']:.1f} m/s  
+    direction: \t {last_obs['wind_angle']}°
     """)
 except:
     pass
 
 fig = px.bar_polar(
     df_storhogen.tail(1), 
-    r="wind_speed", 
-    theta="wind_dir", 
+    r="wind_strength", 
+    theta="wind_angle", 
     color="location",
     color_discrete_sequence= px.colors.sequential.Plasma_r)
 fig.update_layout(
@@ -186,12 +213,15 @@ fig.update_layout(
     )
 )
 st.plotly_chart(fig)
-
-st.subheader("Netatmo")
+#%%
+st.subheader("Live map")
 df = collect_netatmo_data()
+holfuy = collect_holfuy_data() # Append modvaberget
+storhogen=df_storhogen.tail(1)
+storhogen['s'] = np.sqrt(storhogen['wind_strength'])/200
+df = pd.concat([holfuy, storhogen.tail(1), df ])
 fig = plot_wind_arrows(df)
 fig
-
 
 #%% WINDY
 st.subheader("Windy nå 1500moh")
@@ -213,11 +243,11 @@ images = ["http://sognskisenter.org/webkam/parkering/image.jpg",
 st.image(images, use_column_width=True)
 
 #%% Historical data
-fig = go.Figure(data=go.Scatter(x=df_storhogen.time, y=df_storhogen.wind_dir))
+fig = go.Figure(data=go.Scatter(x=df_storhogen.time, y=df_storhogen.wind_angle))
 fig.update_layout(title="Vindretning storhogen", xaxis_title="Tid", yaxis_title="Vindretning [°]")
 st.plotly_chart(fig)
 
-fig = go.Figure(data=go.Scatter(x=df_storhogen.time, y=df_storhogen.wind_speed))
+fig = go.Figure(data=go.Scatter(x=df_storhogen.time, y=df_storhogen.wind_strength))
 fig.update_layout(title="Vindstyrke storhogen", xaxis_title="Tid", yaxis_title="Vind [m/s]", autosize=True)
 st.plotly_chart(fig)
 
@@ -229,9 +259,10 @@ Data er hentet fra api.met.no
 """)
 
 
-#%%
-#%% Text forecast
+
+
 """
+#%% Text forecast
 from lxml import etree as ET
 import requests
 r = requests.get("https://api.met.no/weatherapi/textforecast/2.0/landoverview")
