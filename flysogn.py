@@ -5,7 +5,7 @@ import streamlit as st
 import requests
 import pandas as pd
 import numpy as np
-from datetime import datetime
+from datetime import datetime, timedelta
 from metar import Metar
 import json
 import plotly.graph_objects as go
@@ -55,6 +55,32 @@ def get_storhogen_data():
     df['name'] = "Storhogen"
     df['hours_since_reading'] = (datetime.now()-df['time']).apply(lambda x: np.round(x.seconds/3600,1))
     return df
+
+#%% GET ECOWITT DATA
+import pandas as pd
+from ecowitt_net_get import ecowitt_get_history, ecowitt_get_realtime
+def get_historical_ecowitt(lookback=1):
+    variables = ['outdoor.temperature', 'wind.wind_speed', 'wind.wind_gust', 'wind.wind_direction']
+    selection = ",".join(variables)
+    start_date = (datetime.now() - timedelta(days=lookback)).replace(minute=0, second=0, microsecond=0)
+    end_date = datetime.now()
+
+    data = ecowitt_get_history(start_date, end_date, call_back=selection, cycle_type='5min')
+    # transform into arrays
+    
+    dfs= {}
+    for key, value in data.items():
+        if isinstance(value, dict):
+            dfs[key] = pd.DataFrame.from_dict(value['list'], orient='index')
+    # join into one df with columns
+    df = pd.concat(dfs, axis=1)
+    # Remove multi index
+    df.columns = df.columns.droplevel(1)
+    # only keep last name after last . in column name:
+    df.columns = df.columns.str.split('.').str[-1]
+    return df
+
+ecowitt = get_historical_ecowitt()
 
 
 #%%
@@ -195,11 +221,11 @@ except:
 
 #%%
 st.subheader("Live map")
-df = collect_netatmo_data()
+#df = collect_netatmo_data()
 holfuy = collect_holfuy_data() # Append modvaberget
 storhogen=df_storhogen.tail(1)
 storhogen['s'] = np.sqrt(storhogen['wind_strength'])/200
-df = pd.concat([holfuy, storhogen.tail(1), df ])
+df = pd.concat([holfuy, storhogen.tail(1), ]) #  df
 fig = plot_wind_arrows(df)
 fig
 
