@@ -78,10 +78,10 @@ def get_historical_ecowitt(lookback=1):
     df.columns = df.columns.droplevel(1)
     # only keep last name after last . in column name:
     df.columns = df.columns.str.split('.').str[-1]
+    df.rename(columns={'wind_speed':'wind_strength', 'wind_direction' : 'wind_angle'}, inplace=True)
+    df['time'] = df.index
+    df.reset_index(drop=True, inplace=True)
     return df
-
-ecowitt = get_historical_ecowitt()
-
 
 #%%
 def collect_holfuy_data():
@@ -116,7 +116,7 @@ def collect_netatmo_data():
             'password': st.secrets['netatmo_password'],
             'device': st.secrets['netatmo_device']} )
     ws.get_data()
-    #%% NETATMO
+    # NETATMO
     # lon / lat
     coord_sw = [6.4635085,61.0616599]
     coord_ne = [6.76,61.646145]
@@ -193,6 +193,20 @@ def plot_wind_arrows(df):
 
 #%% Presentation
 st.title("Flyinfo Sogn")
+#%%
+st.subheader("Barten")
+df_barten = get_historical_ecowitt()
+fig = go.Figure(data=go.Scatter(x=df_barten.time, y=df_barten.wind_strength, name="Wind Strength"))
+# Add gusts to figure
+fig.add_trace(go.Scatter(x=df_barten.time, y=df_barten.wind_gust, name="Gust"))
+
+fig.update_layout(title="Vindstyrke Barten", xaxis_title="Tid", yaxis_title="Vindstykr [m/s]")
+st.plotly_chart(fig)
+
+df_barten = get_historical_ecowitt()
+fig = go.Figure(data=go.Scatter(x=df_barten.time, y=df_barten.wind_angle))
+fig.update_layout(title="Vindretning Barten", xaxis_title="Tid", yaxis_title="Vindretning [°]")
+st.plotly_chart(fig)
 
 #%% Modvoberget
 st.components.v1.iframe(
@@ -203,7 +217,6 @@ st.components.v1.iframe(
     src="https://widget.holfuy.com/?station=1550&su=m/s&t=C&lang=en&mode=average&avgrows=32",
     height=170
 )
-#%%
 st.subheader("Storhogen")
 try:
     
