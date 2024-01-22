@@ -5,6 +5,7 @@ from metar import Metar
 import pandas as pd
 from datetime import datetime, timedelta
 import numpy as np
+import json
 #%%
 def get_storhogen_data():
     url_metar = "https://api.met.no/weatherapi/tafmetar/1.0/metar.txt?icao=ENSG"
@@ -30,7 +31,7 @@ def get_storhogen_data():
 
             obs_list.append(
                 {
-                    'location' : obs.station_id,
+                    #'location' : obs.station_id,
                     'time' : obs.time,
                     'wind_angle' : sh_dir, 
                     'wind_strength' : sh_windspeed*0.51 # kt to m/s
@@ -39,15 +40,26 @@ def get_storhogen_data():
         except:
             pass
     df = pd.DataFrame(obs_list)
-    df['lat'] = 61.1732881
-    df['lon'] = 7.1195861
-    df['altitude'] = 1170
-    df['name'] = "Storhogen"
-    df['hours_since_reading'] = (datetime.now()-df['time']).apply(lambda x: np.round(x.seconds/3600,1))
-    return df
+    df['time'] =  pd.to_datetime(df['time'])
+    output = {
+        'lat' : 61.1732881,
+        'lon' : 7.1195861,
+        'altitude' : 1170,
+        'name' : "Storhogen",
+        'measurements' : df,
+    }
+    return output
 
 import pandas as pd
 from ecowitt_net_get import ecowitt_get_history, ecowitt_get_realtime
+
+# Output of each function is a dataframe with columns:
+# datetime object
+# wind_strength: m/s
+# wind_angle: degrees
+# wind_gust: m/s
+# temperatuere: C (optional)
+# battery: % (optional)
 
 def get_historical_ecowitt(lookback=1):
     variables = ['outdoor.temperature', 'wind.wind_speed', 'wind.wind_gust', 'wind.wind_direction']
@@ -69,39 +81,82 @@ def get_historical_ecowitt(lookback=1):
     # only keep last name after last . in column name:
     df.columns = df.columns.str.split('.').str[-1]
     df.rename(columns={'wind_speed':'wind_strength', 'wind_direction' : 'wind_angle'}, inplace=True)
-    df['time'] = df.index
+    df['time'] = pd.to_datetime(df.index)
     df.reset_index(drop=True, inplace=True)
-    df['lat'] = 61.2477458
-    df['lon'] = 7.0883309
-    df['name'] = "Barten"
-    df['altitude'] = 700
-    df['s'] = np.sqrt(df['wind_strength'])/200
-    #df['time'] = pd.to_datetime(df['time'])
-    df['hours_since_reading'] = df['time'].apply(lambda x: np.round((datetime.now()-x).total_seconds()/3600,1))
-    return df
 
-
-import json
-def collect_holfuy_data():
-    modva_raw = json.loads(requests.get(f"http://api.holfuy.com/live/?s=1550&pw={st.secrets['holfuy_secret']}=JSON&tu=C&su=m/s").content)
-
-    modva = {
-        'stationId' : 1550,
-        'lat' : 61.3454358,
-        'lon' : 7.1977754,
-        'altitude' : 900,
-        'name' : "Modvaberget",
-        'hours_since_reading' : 0
+    station = {
+        'lat' : 61.2477458,
+        'lon' : 7.0883309,
+        'altitude' : 700,
+        'name' : "Barten",
+        'measurements' : df,
     }
+    return station
 
-    modva['lat'] = 61.3454358
-    modva['lon'] = 7.1977754
-    modva['altitude'] = 900
-    modva['name'] = modva_raw['stationName']
-    modva['wind_strength']= modva_raw['wind']['speed']
-    modva['wind_angle'] = modva_raw['wind']['direction']
-    modva['s'] = np.sqrt(modva_raw['wind']['speed'])/200
-    return pd.DataFrame([modva])
+def collect_holfuy_data(station):
+    #modva_raw = json.loads(requests.get(f"http://api.holfuy.com/live/?s={station['stationId']}&pw={st.secrets['holfuy_secret']}=JSON&tu=C&su=m/s").content)
+    modva_hist = json.loads(requests.get(f"http://api.holfuy.com/archive/?s={station['stationId']}&pw={st.secrets['holfuy_secret']}=JSON&tu=C&su=m/s&cnt=100&batt=true&type=1").content)
+    df = pd.DataFrame(modva_hist['measurements'])
+    #    'wind': {'speed': 12.8, 'gust': 14.7, 'min': 10.6, 'direction': 199},
+    # Expand the wind column:
+    df['wind_strength'] = df['wind'].apply(lambda x: x['speed'])
+    df['wind_angle'] = df['wind'].apply(lambda x: x['direction'])
+    df['wind_gust'] = df['wind'].apply(lambda x: x['gust'])
+    df['time'] = pd.to_datetime(df['dateTime'])
+    
+    
+    df = df[['time', 'wind_strength', 'wind_angle', 'wind_gust','battery','temperature']]
+
+
+    
+    for key, val in station.items():
+        df[key] = val
+    station['measurements']  = df
+
+    return station
+
+
+def get_weather_measurements():
+    output = {}
+    ### Storhogen
+    output['Storhogen'] = get_storhogen_data()
+    ### Ecowitt
+    output['Barten'] = get_historical_ecowitt(lookback=2)
+    ### HOLFUY
+    stations = [
+        {
+            'stationId' : 1550,
+            'lat' : 61.3454358,
+            'lon' : 7.1977754,
+            'altitude' : 900,
+            'name' : "Modvaberget",
+        },
+        {
+            'stationId' : 1703,
+            'lat' : 61.29223,
+            'lon' : 7.0328,
+            'altitude' : 1105,
+            'name' : "Tylderingen",
+        },
+        {
+            'stationId' : 586,
+            'lat' : 61.8849707,
+            'lon' : 6.8331465,
+            'altitude' : 1011,
+            'name' : "Loen Skylift",
+        },
+        ]
+    
+    for station in stations:
+        try:
+            output[station['name']] = collect_holfuy_data(station)
+        except:
+            # print what is wrong
+            pass
+
+    for key, val in output.items():
+        val['measurements'] = val['measurements'].sort_values('time', ascending=False).reset_index(drop=True)
+    return output
 
 
 def collect_netatmo_data():
