@@ -61,7 +61,7 @@ def build_live_map(data):
         return DivIcon(icon_size=(size * 2, size), icon_anchor=(size, size // 2), html=arrow_html)
 
     # Create a Folium map
-    m = folium.Map(location=[61.1732881, 7.1195861], zoom_start=8)
+    m = folium.Map(location=[61.1732881, 7.1195861], zoom_start=9)
 
     # Add wind direction arrows to the map
     for station_name, station in data.items():
@@ -170,7 +170,6 @@ def show_webcams():
     "http://sognskisenter.org/webkam/mast16/image.jpg"]
     st.image(images, use_column_width=True)
 
-
 def show_windy():
     st.components.v1.iframe(
         src="https://embed.windy.com/embed2.html?lat=61.010&lon=7.015&detailLat=61.249&detailLon=7.086&width=650&height=450&zoom=8&level=850h&overlay=wind&product=ecmwf&menu=&message=true&marker=&calendar=now&pressure=&type=map&location=coordinates&detail=true&metricWind=m%2Fs&metricTemp=%C2%B0C&radarRange=-1",
@@ -208,7 +207,3 @@ if __name__ == "__main__":
         show_windy()
     with tab_holfuy:
         show_holfuy_widgets()
-
-
-
-# %%
