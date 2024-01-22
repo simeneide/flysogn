@@ -13,149 +13,146 @@ from shapely.affinity import rotate as R
 import streamlit.components.v1 as components
 import utils
 
-
-
-#%%
-
 #%% Presentation
 st.title("Flyinfo Sogn")
 #%%
-st.subheader("Barten")
-df_barten = utils.get_historical_ecowitt()
-fig = go.Figure(data=go.Scatter(x=df_barten.time, y=df_barten.wind_strength, name="Wind Strength"))
-# Add gusts to figure
-fig.add_trace(go.Scatter(x=df_barten.time, y=df_barten.wind_gust, name="Gust"))
-
-fig.update_layout(title="Vindstyrke Barten", xaxis_title="Tid", yaxis_title="Vindstykr [m/s]")
-st.plotly_chart(fig)
-
-fig = go.Figure(data=go.Scatter(x=df_barten.time, y=df_barten.wind_angle))
-fig.update_layout(title="Vindretning Barten", xaxis_title="Tid", yaxis_title="Vindretning [°]")
-st.plotly_chart(fig)
-
-#%% Modvoberget
-components.iframe(
-    src="https://widget.holfuy.com/?station=1550&su=m/s&t=C&lang=en&mode=detailed",
-    height=250
-)
-components.iframe(
-    src="https://widget.holfuy.com/?station=1550&su=m/s&t=C&lang=en&mode=average&avgrows=32",
-    height=170
-)
-st.subheader("Storhogen")
-try:
-    
-    df_storhogen = utils.get_storhogen_data()
-    last_obs = df_storhogen.tail(1).to_dict("records")[0]
-    
-    st.markdown(f"""
-    **time:** \t {last_obs['time']}  
-    **Hours since reading**: \t {last_obs['hours_since_reading']:.1f}  
-    speed:  \t {last_obs['wind_strength']:.1f} m/s  
-    direction: \t {last_obs['wind_angle']}°
-    """)
-except:
-    pass
-
+data = utils.get_weather_measurements()
 #%%
-st.subheader("Live map")
-def plot_wind_arrows(df):
-    a = shapely.wkt.loads(
-        "POLYGON ((-0.6227064947841563 1.890841205238906, -0.3426264166591566 2.156169330238906, -0.07960493228415656 2.129731830238906, 1.952059130215843 0.022985736488906, -0.2085619635341561 -2.182924419761094, -0.6397611822841562 -1.872877544761094, -0.6636088385341563 -1.606053326011095, 0.5862935052158434 -0.400158794761094, -2.312440869784157 -0.3993228572610942, -2.526870557284156 -0.1848931697610945, -2.517313916659156 0.2315384708639062, -2.312440869784157 0.3990052677389059, 0.5862935052158434 0.399841205238906, -0.6363314947841564 1.565763080238906, -0.6227064947841563 1.890841205238906))"
-    )
-    # scatter points
-    t = (
-        px.scatter_mapbox(df, lat="lat", lon="lon", 
-        color="wind_strength", hover_data=["wind_strength","wind_angle","hours_since_reading","name","altitude"])
-        .update_layout(mapbox={"style": "carto-positron"})
-        .data
-    )
+import folium
+import pandas as pd
+from folium.features import DivIcon
 
-    # wind direction and strength
-    fig = px.choropleth_mapbox(
-        df,
-        geojson=gpd.GeoSeries(
-            df.loc[:, ["lon", "lat", "wind_angle", "s"]].apply(
-                lambda r: R(
-                    T(a, [r["s"], 0, 0, r["s"], r["lon"], r["lat"]]),
-                    angle=-90-r['wind_angle'],
-                    origin=(r["lon"], r["lat"]),
-                    use_radians=False,
-                ),
-                axis=1,
-            )
-        ).__geo_interface__,
-        locations=df.index,
-        color="wind_strength",
-        opacity=0.5
-    )
-    fig.add_traces(t)
-    fig.update_layout(
-        mapbox={
-            "style": "carto-positron", 
-            "zoom": 8,
-                    "center":dict(
-                lat=df['lat'].mean(),
-                lon=df['lon'].mean()
-            )}, margin={"l":0,"r":0,"t":0,"b":0})
+import matplotlib.colors as mcolors
+import matplotlib.pyplot as plt
+import streamlit as st
+import streamlit_folium
+import folium
+import pandas as pd
+from folium.features import DivIcon
+import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
+
+import streamlit as st
+from streamlit_folium import folium_static
+import folium
+import pandas as pd
+from folium.features import DivIcon
+import matplotlib.colors as mcolors
+
+import numpy as np
+from matplotlib.colors import to_hex, LinearSegmentedColormap
+def build_live_map(data):
+    def interpolate_color(wind_speed, thresholds=[2, 8, 14], colors=['white', 'green', 'red', 'black']):
+        # Normalize thresholds to range [0, 1]
+        norm_thresholds = [t / max(thresholds) for t in thresholds]
+        norm_thresholds = [0] + norm_thresholds + [1]
+
+        # Extend color list to match normalized thresholds
+        extended_colors = [colors[0]] + colors + [colors[-1]]
+
+        # Create colormap
+        cmap = LinearSegmentedColormap.from_list("wind_speed_cmap", list(zip(norm_thresholds, extended_colors)), N=256)
+
+        # Normalize wind speed to range [0, 1] and get color
+        norm_wind_speed = wind_speed / max(thresholds)
+        return to_hex(cmap(np.clip(norm_wind_speed, 0, 1)))
+
+    def create_arrow_icon(wind_speed, wind_gust, angle, max_wind_speed=20):
+        # Adjust the size of the arrow based on wind speed
+        base_size = 20
+        size = base_size + int((wind_speed / max_wind_speed) * base_size)
+
+        # Interpolate color based on wind speed
+        color = interpolate_color(wind_speed)
+
+        # Adjust angle for map orientation
+        adjusted_angle = angle + 90
+
+        # Define font size for text
+        text_font_size = 10
+
+        # Adding text for wind speed next to the arrow
+        arrow_html = f'<div style="display: flex; align-items: center;">'
+        arrow_html += f'<div style="font-size: {size}px; color: {color}; transform: rotate({adjusted_angle}deg);">&#10148;</div>'
+        arrow_html += f'<span style="margin-left: 5px; font-size: {text_font_size}px;">{wind_speed}m/s'
+        if wind_gust:
+            arrow_html += f'({wind_gust})'
+        arrow_html += '</span></div>'
+
+        return DivIcon(icon_size=(size * 2, size), icon_anchor=(size, size // 2), html=arrow_html)
+
+    # Create a Folium map
+    m = folium.Map(location=[61.1732881, 7.1195861], zoom_start=8)
+
+    # Add wind direction arrows to the map
+    for station_name, station in data.items():
+        latest_measurement = station['measurements'].iloc[0]
+        wind_speed = latest_measurement['wind_strength']
+        wind_angle = latest_measurement['wind_angle']
+        wind_gust = latest_measurement.get('wind_gust')
+
+        # Create an arrow icon
+        arrow_icon = create_arrow_icon(wind_speed, wind_gust, wind_angle)
+
+        # Add the arrow to the map
+        folium.Marker(
+            [station['lat'], station['lon']],
+            icon=arrow_icon,
+            popup=f"<b>{station_name}</b><br>Speed: {wind_speed} m/s"
+        ).add_to(m)
+
+    return folium_static(m)
+
+import streamlit as st
+import matplotlib.pyplot as plt
+from windrose import WindroseAxes
+import pandas as pd
+
+# Function to create wind rose
+def plot_wind_rose(df, rmax=20):
+    #plt.style.use('seaborn')  # Use seaborn style for better visuals
+    fig = plt.figure()
+    ax = WindroseAxes.from_ax(fig=fig)
+    ax.bar(df['wind_angle'], df['wind_strength'], normed=True, opening=0.8, edgecolor='white')
+    ax.set_rmax(rmax)
     return fig
-#df = collect_netatmo_data()
-holfuy = utils.collect_holfuy_data() # Append modvaberget
-storhogen = df_storhogen.tail(1)
-storhogen['s'] = np.sqrt(storhogen['wind_strength'])/200
-df = pd.concat([holfuy, storhogen.tail(1),df_barten.tail(1)]) #  df
-fig = plot_wind_arrows(df)
-fig
-#%% WINDY
-st.subheader("Windy nå 1500moh")
-st.components.v1.iframe(
-    src="https://embed.windy.com/embed2.html?lat=61.010&lon=7.015&detailLat=61.249&detailLon=7.086&width=650&height=450&zoom=8&level=850h&overlay=wind&product=ecmwf&menu=&message=true&marker=&calendar=now&pressure=&type=map&location=coordinates&detail=true&metricWind=m%2Fs&metricTemp=%C2%B0C&radarRange=-1",
-    height=450
-)
 
-#%% Vindnå.no
-components.iframe(
-    src="https://vindnå.no",
-    height=450
-)
+# Streamlit app
+def wind_rose(data):
+    # User input for lookback period
+    lookback_hours = st.slider("Select lookback period in hours", 1, 48, 12)
 
-#%% IMAGES
-images = ["http://sognskisenter.org/webkam/parkering/image.jpg",
-"http://sognskisenter.org/webkam/rodekorshytta/image.jpg",
-"http://sognskisenter.org/webkam/mast16/image.jpg"]
-st.image(images, use_column_width=True)
-
-#%% Historical data
-fig = go.Figure(data=go.Scatter(x=df_storhogen.time, y=df_storhogen.wind_angle))
-fig.update_layout(title="Vindretning storhogen", xaxis_title="Tid", yaxis_title="Vindretning [°]")
-st.plotly_chart(fig)
-
-fig = go.Figure(data=go.Scatter(x=df_storhogen.time, y=df_storhogen.wind_strength))
-fig.update_layout(title="Vindstyrke storhogen", xaxis_title="Tid", yaxis_title="Vind [m/s]", autosize=True)
-st.plotly_chart(fig)
+    max_frequency = 0
+    for station_info in data.values():
+        df = station_info['measurements']
+        df['time'] = pd.to_datetime(df['time'])
+        min_time = df['time'].max() - pd.Timedelta(hours=lookback_hours)
+        filtered_df = df[df['time'] >= min_time]
+        max_frequency = max(max_frequency, filtered_df['wind_strength'].value_counts().max())
 
 
-st.text("""
-Visualisering av metar-data fra storhogen for lettere å få en oversikt over vindforhold akkurat nå.
-Repo: https://github.com/simeneide/flysogn
-Data er hentet fra api.met.no
-""")
+    # Calculate the number of columns based on screen width
+    cols = st.columns(2)# if st.session_state.window_width > 768 else st.beta_columns(1)
 
+    # Process and display wind roses for each station
+    idx = 0  # Index to track current column
+    for station_name, station_info in data.items():
+        with cols[idx % len(cols)]:
+            st.subheader(f"Wind Rose for {station_name}")
 
+            # Convert 'time' column to datetime and filter based on lookback period
+            df = station_info['measurements']
+            df['time'] = pd.to_datetime(df['time'])
+            min_time = df['time'].max() - pd.Timedelta(hours=lookback_hours)
+            filtered_df = df[df['time'] >= min_time]
 
+            # Display wind rose
+            st.pyplot(plot_wind_rose(filtered_df, rmax=max_frequency))
 
-"""
-#%% Text forecast
-from lxml import etree as ET
-import requests
-r = requests.get("https://api.met.no/weatherapi/textforecast/2.0/landoverview")
-#import xml
-#import xml.etree.ElementTree as ET
-et = ET.fromstring(r.content)
-for child in et.findall("time"):
-    print(child.findall("*"))
-fc = et.xpath(".//time")[0].xpath(".//location")[0]
+        idx += 1
 
-fc.items()
+if __name__ == "__main__":
+    build_live_map(data)
+    wind_rose(data)
+
 # %%
-"""
