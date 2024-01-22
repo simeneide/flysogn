@@ -5,7 +5,6 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 import plotly.express as px
-px.set_mapbox_access_token(st.secrets['mapbox_token'])
 import geopandas as gpd
 import shapely.geometry
 from shapely.affinity import affine_transform as T
@@ -13,34 +12,14 @@ from shapely.affinity import rotate as R
 import streamlit.components.v1 as components
 import utils
 
-#%% Presentation
-st.title("Flyinfo Sogn")
-#%%
-data = utils.get_weather_measurements()
-#%%
 import folium
-import pandas as pd
 from folium.features import DivIcon
-
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
-import streamlit as st
-import streamlit_folium
-import folium
-import pandas as pd
-from folium.features import DivIcon
-import matplotlib.pyplot as plt
-import matplotlib.colors as mcolors
-
-import streamlit as st
 from streamlit_folium import folium_static
-import folium
-import pandas as pd
-from folium.features import DivIcon
-import matplotlib.colors as mcolors
-
-import numpy as np
 from matplotlib.colors import to_hex, LinearSegmentedColormap
+from windrose import WindroseAxes
+
 def build_live_map(data):
     def interpolate_color(wind_speed, thresholds=[2, 8, 14], colors=['white', 'green', 'red', 'black']):
         # Normalize thresholds to range [0, 1]
@@ -103,11 +82,6 @@ def build_live_map(data):
 
     return folium_static(m)
 
-import streamlit as st
-import matplotlib.pyplot as plt
-from windrose import WindroseAxes
-import pandas as pd
-
 # Function to create wind rose
 def plot_wind_rose(df, rmax=20):
     #plt.style.use('seaborn')  # Use seaborn style for better visuals
@@ -132,7 +106,7 @@ def wind_rose(data):
 
 
     # Calculate the number of columns based on screen width
-    cols = st.columns(2)# if st.session_state.window_width > 768 else st.beta_columns(1)
+    cols = st.columns(2)
 
     # Process and display wind roses for each station
     idx = 0  # Index to track current column
@@ -151,8 +125,90 @@ def wind_rose(data):
 
         idx += 1
 
+
+def plot_wind_data(df_dict, selected_stations, data_type, yaxis_title):
+    fig = go.Figure()
+
+    for station in selected_stations:
+        df = df_dict[station]['measurements']
+        df = df.sort_values('time')
+
+        # Check if the data type (e.g., 'wind_gust') exists in the DataFrame
+        if data_type in df.columns:
+            fig.add_trace(go.Scatter(x=df['time'], y=df[data_type], mode='lines+markers', name=station))
+
+    fig.update_layout(
+        title_text=f"{yaxis_title}",
+        xaxis=dict(title='Time',title_font_size=14),
+        yaxis=dict(title=yaxis_title, title_font_size=14),
+        margin=dict(l=10, r=10, t=30, b=40),
+        title_font_size=16,
+    )
+    fig.update_xaxes(tickformat='%Y-%m-%d %H:%M')
+
+    return fig
+
+def historical_wind_graphs():
+    selected_stations = st.multiselect("Select Stations", options=list(data.keys()), default=list(data.keys()))
+
+    if selected_stations:
+        # Plotting wind strength
+        wind_strength_chart = plot_wind_data(data, selected_stations, 'wind_strength', 'Wind Strength (m/s)')
+        st.plotly_chart(wind_strength_chart, use_container_width=True)
+
+        # Plotting wind angle
+        wind_angle_chart = plot_wind_data(data, selected_stations, 'wind_angle', 'Wind Angle (degrees)')
+        st.plotly_chart(wind_angle_chart, use_container_width=True)
+
+        # Plotting wind gust (if available)
+        wind_gust_chart = plot_wind_data(data, selected_stations, 'wind_gust', 'Wind Gust (m/s)')
+        st.plotly_chart(wind_gust_chart, use_container_width=True)
+
+def show_webcams():
+    images = ["http://sognskisenter.org/webkam/parkering/image.jpg",
+    "http://sognskisenter.org/webkam/rodekorshytta/image.jpg",
+    "http://sognskisenter.org/webkam/mast16/image.jpg"]
+    st.image(images, use_column_width=True)
+
+
+def show_windy():
+    st.components.v1.iframe(
+        src="https://embed.windy.com/embed2.html?lat=61.010&lon=7.015&detailLat=61.249&detailLon=7.086&width=650&height=450&zoom=8&level=850h&overlay=wind&product=ecmwf&menu=&message=true&marker=&calendar=now&pressure=&type=map&location=coordinates&detail=true&metricWind=m%2Fs&metricTemp=%C2%B0C&radarRange=-1",
+        height=450
+    )
+
+def show_holfuy_widgets():
+    for stationId in [1550,1703]:
+        components.iframe(
+            src=f"https://widget.holfuy.com/?station={stationId}&su=m/s&t=C&lang=en&mode=detailed",
+            height=250
+        )
+        components.iframe(
+            src=f"https://widget.holfuy.com/?station={stationId}&su=m/s&t=C&lang=en&mode=average&avgrows=32",
+            height=170
+    )
 if __name__ == "__main__":
-    build_live_map(data)
-    wind_rose(data)
+    st.title("Flyinfo Sogn")
+    st.text("Information gathered from various sources")
+    data = utils.get_weather_measurements()
+
+    # Create tabs
+    tab1, tab2, tab3, tab4, tab_windy, tab_holfuy = st.tabs(["Live map", "Historical Wind", "Wind roses", "Webcams","Windy", "holfuy"])
+
+    # Content for the first tab
+    with tab1:
+        build_live_map(data)
+    with tab2:
+        historical_wind_graphs()
+    with tab3:
+        wind_rose(data)
+    with tab4:
+        show_webcams()
+    with tab_windy:
+        show_windy()
+    with tab_holfuy:
+        show_holfuy_widgets()
+
+
 
 # %%
