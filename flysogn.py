@@ -139,6 +139,50 @@ def plot_wind_data(df_dict, selected_stations, data_type, yaxis_title, lookback_
         filtered_df = df[df['time'] >= min_time]
 
         if data_type in filtered_df.columns:
+            fig.add_trace(go.Scatter(
+                x=filtered_df['time'], 
+                y=filtered_df[data_type], 
+                mode='lines+markers', 
+                name=station,
+                line=dict(width=2),  # Adjust line thickness here
+                marker=dict(size=5)  # Adjust marker size here
+            ))
+    # Update layout
+    fig.update_layout(
+        title_text=f"{yaxis_title}",
+        xaxis=dict(
+            title='Time', 
+            title_font_size=14,
+            tickformat='%Y-%m-%d %H:%M',
+            gridcolor='grey',  # Change grid line color if needed
+            showgrid=True,
+            griddash='dash',  # Set grid line style
+            dtick=3600000 * 6  # 6 hours in milliseconds
+        ),
+        yaxis=dict(
+            title=yaxis_title, 
+            title_font_size=14
+        ),
+        margin=dict(l=10, r=10, t=30, b=40),
+        title_font_size=16,
+    )
+
+    return fig
+
+
+def plot_wind_data2(df_dict, selected_stations, data_type, yaxis_title, lookback_hours):
+    fig = go.Figure()
+
+    for station in selected_stations:
+        df = df_dict[station]['measurements']
+        df['time'] = pd.to_datetime(df['time'])
+        df = df.sort_values('time')
+
+        # Filter data based on lookback period
+        min_time = df['time'].max() - pd.Timedelta(hours=lookback_hours)
+        filtered_df = df[df['time'] >= min_time]
+
+        if data_type in filtered_df.columns:
             fig.add_trace(go.Scatter(x=filtered_df['time'], y=filtered_df[data_type], mode='lines+markers', name=station))
 
     fig.update_layout(
