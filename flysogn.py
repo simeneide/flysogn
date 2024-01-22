@@ -126,20 +126,24 @@ def wind_rose(data):
         idx += 1
 
 
-def plot_wind_data(df_dict, selected_stations, data_type, yaxis_title):
+def plot_wind_data(df_dict, selected_stations, data_type, yaxis_title, lookback_hours):
     fig = go.Figure()
 
     for station in selected_stations:
         df = df_dict[station]['measurements']
+        df['time'] = pd.to_datetime(df['time'])
         df = df.sort_values('time')
 
-        # Check if the data type (e.g., 'wind_gust') exists in the DataFrame
-        if data_type in df.columns:
-            fig.add_trace(go.Scatter(x=df['time'], y=df[data_type], mode='lines+markers', name=station))
+        # Filter data based on lookback period
+        min_time = df['time'].max() - pd.Timedelta(hours=lookback_hours)
+        filtered_df = df[df['time'] >= min_time]
+
+        if data_type in filtered_df.columns:
+            fig.add_trace(go.Scatter(x=filtered_df['time'], y=filtered_df[data_type], mode='lines+markers', name=station))
 
     fig.update_layout(
         title_text=f"{yaxis_title}",
-        xaxis=dict(title='Time',title_font_size=14),
+        xaxis=dict(title='Time', title_font_size=14),
         yaxis=dict(title=yaxis_title, title_font_size=14),
         margin=dict(l=10, r=10, t=30, b=40),
         title_font_size=16,
@@ -148,21 +152,18 @@ def plot_wind_data(df_dict, selected_stations, data_type, yaxis_title):
 
     return fig
 
-def historical_wind_graphs():
+
+def historical_wind_graphs(data):
+    # Lookback period slider
+    lookback_hours = st.slider("Select lookback period in hours", 1, 48, 24)
+
     selected_stations = st.multiselect("Select Stations", options=list(data.keys()), default=list(data.keys()))
 
     if selected_stations:
-        # Plotting wind strength
-        wind_strength_chart = plot_wind_data(data, selected_stations, 'wind_strength', 'Wind Strength (m/s)')
-        st.plotly_chart(wind_strength_chart, use_container_width=True)
-
-        # Plotting wind angle
-        wind_angle_chart = plot_wind_data(data, selected_stations, 'wind_angle', 'Wind Angle (degrees)')
-        st.plotly_chart(wind_angle_chart, use_container_width=True)
-
-        # Plotting wind gust (if available)
-        wind_gust_chart = plot_wind_data(data, selected_stations, 'wind_gust', 'Wind Gust (m/s)')
-        st.plotly_chart(wind_gust_chart, use_container_width=True)
+        # Filter data based on lookback period and plot
+        for data_type, yaxis_title in [('wind_strength', 'Wind Strength (m/s)'), ('wind_angle', 'Wind Angle (degrees)'), ('wind_gust', 'Wind Gust (m/s)')]:
+            fig = plot_wind_data(data, selected_stations, data_type, yaxis_title, lookback_hours)
+            st.plotly_chart(fig, use_container_width=True)
 
 def show_webcams():
     images = ["http://sognskisenter.org/webkam/parkering/image.jpg",
@@ -198,7 +199,7 @@ if __name__ == "__main__":
     with tab1:
         build_live_map(data)
     with tab2:
-        historical_wind_graphs()
+        historical_wind_graphs(data)
     with tab3:
         wind_rose(data)
     with tab4:
