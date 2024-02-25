@@ -61,10 +61,10 @@ from ecowitt_net_get import ecowitt_get_history, ecowitt_get_realtime
 # temperatuere: C (optional)
 # battery: % (optional)
 
-def get_historical_ecowitt(lookback=1):
+def get_historical_ecowitt(lookback=24):
     variables = ['outdoor.temperature', 'wind.wind_speed', 'wind.wind_gust', 'wind.wind_direction']
     selection = ",".join(variables)
-    start_date = (datetime.now() - timedelta(days=lookback)).replace(minute=0, second=0, microsecond=0)
+    start_date = (datetime.now() - timedelta(hours=lookback))#.replace(minute=0, second=0, microsecond=0)
     end_date = datetime.now()
 
     data = ecowitt_get_history(start_date, end_date, call_back=selection, cycle_type='5min')
@@ -116,12 +116,12 @@ def collect_holfuy_data(station):
     return station
 
 
-def get_weather_measurements():
+def get_weather_measurements(lookback=24):
     output = {}
     ### Storhogen
     output['Storhogen'] = get_storhogen_data()
     ### Ecowitt
-    output['Barten'] = get_historical_ecowitt(lookback=2)
+    output['Barten'] = get_historical_ecowitt(lookback=lookback)
     ### HOLFUY
     stations = [
         {
@@ -202,3 +202,4 @@ def collect_netatmo_data():
     df['s'] = np.sqrt(df['wind_strength'])/500
     return df
 # %%
+
