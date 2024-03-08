@@ -2,7 +2,7 @@
 import requests
 from datetime import datetime
 import streamlit as st
-UnitsEcowitt = '&temp_unitid=1&pressure_unitid=3&wind_speed_unitid=7&rainfall_unitid=12&solar_irradiance_unitid=16'
+UnitsEcowitt = '&temp_unitid=1&pressure_unitid=3&wind_speed_unitid=6&rainfall_unitid=12&solar_irradiance_unitid=16'
 KEY_SEPARATOR = '.'
 
 def _t2dt(t):

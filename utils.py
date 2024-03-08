@@ -69,7 +69,8 @@ def get_historical_ecowitt(lookback=24):
 
     data = ecowitt_get_history(start_date, end_date, call_back=selection, cycle_type='5min')
     # transform into arrays
-    
+    assert data['data.wind.wind_gust']['unit'] == "m/s", "unit of wind gust is not m/s"
+    assert data['data.wind.wind_speed']['unit'] == "m/s", "unit of wind speed is not m/s"
     dfs= {}
     for key, value in data.items():
         if isinstance(value, dict):
