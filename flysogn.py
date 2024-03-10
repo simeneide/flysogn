@@ -52,16 +52,15 @@ def build_live_map(data):
 
         # Adding text for wind speed next to the arrow
         arrow_html = f'<div style="display: flex; align-items: center;">'
-        arrow_html += f'<div style="font-size: {size}px; color: {color}; transform: rotate({adjusted_angle}deg);">&#10148;</div>'
+        arrow_html += f'<div style="font-size: {size}px; color: {color}; transform: rotate({adjusted_angle}deg); text-shadow: -1px 0 black, 0 1px black, 1px 0 black, 0 -1px black;">&#10148;</div>'
         arrow_html += f'<span style="margin-left: 5px; font-size: {text_font_size}px;">{wind_speed}m/s'
         if wind_gust:
             arrow_html += f'({wind_gust})'
         arrow_html += '</span></div>'
 
         return DivIcon(icon_size=(size * 2, size), icon_anchor=(size, size // 2), html=arrow_html)
-
     # Create a Folium map
-    m = folium.Map(location=[61.1732881, 7.1195861], zoom_start=9)
+    m = folium.Map(location=[61.1732881, 7.1195861], zoom_start=9, width='100%', height='100%')
 
     # Add wind direction arrows to the map
     for station_name, station in data.items():
@@ -77,7 +76,7 @@ def build_live_map(data):
         folium.Marker(
             [station['lat'], station['lon']],
             icon=arrow_icon,
-            popup=f"<b>{station_name}</b><br>Speed: {wind_speed} m/s"
+            popup=f"<b>{station_name}</b> {wind_speed} ({wind_gust if wind_gust else 'N/A'}) m/s (gust)"
         ).add_to(m)
 
     return folium_static(m)
@@ -168,44 +167,86 @@ def plot_wind_data(df_dict, selected_stations, data_type, yaxis_title, lookback_
     )
 
     return fig
-
-
-def plot_wind_data2(df_dict, selected_stations, data_type, yaxis_title, lookback_hours):
+def plot_wind_data(df_dict, selected_stations, data_type, yaxis_title, lookback_hours):
     fig = go.Figure()
 
-    for station in selected_stations:
+    # Define a list of colors
+    colors = ['rgba(255, 0, 0, 0.8)', 'rgba(0, 255, 0, 0.8)', 'rgba(0, 0, 255, 0.8)', 'rgba(255, 255, 0, 0.8)', 'rgba(0, 255, 255, 0.8)', 'rgba(255, 0, 255, 0.8)']
+
+    for i, station in enumerate(selected_stations):
         df = df_dict[station]['measurements']
         df['time'] = pd.to_datetime(df['time'])
         df = df.sort_values('time')
+        df.set_index('time', inplace=True)
+
+        # Resample and interpolate data to be every 15 minutes
+        df = df.resample('15T').interpolate()
 
         # Filter data based on lookback period
-        min_time = df['time'].max() - pd.Timedelta(hours=lookback_hours)
-        filtered_df = df[df['time'] >= min_time]
+        min_time = df.index.max() - pd.Timedelta(hours=lookback_hours)
+        filtered_df = df[df.index >= min_time]
 
         if data_type in filtered_df.columns:
-            fig.add_trace(go.Scatter(x=filtered_df['time'], y=filtered_df[data_type], mode='lines+markers', name=station))
+            fig.add_trace(go.Scatter(
+                x=filtered_df.index, 
+                y=filtered_df[data_type], 
+                mode='lines+markers', 
+                name=station,
+                line=dict(width=2, color=colors[i % len(colors)]),  # Use color from colors list
+                marker=dict(size=5),  # Adjust marker size here
+                legendgroup=station,  # Assign legend group
+            ))
 
+        # Add wind gust data as a scatter plot with markers
+        if 'wind_gust' in filtered_df.columns:
+            fig.add_trace(go.Scatter(
+                x=filtered_df.index, 
+                y=filtered_df['wind_gust'], 
+                mode='markers',  # Change mode to 'markers'
+                name=f"{station} gust",
+                marker=dict(size=5, color=colors[i % len(colors)]),  # Use color from colors list
+                legendgroup=station,  # Assign same legend group as wind plot
+                showlegend=False,  # Hide legend entry
+            ))
+
+    # Update layout
+    # Update layout
     fig.update_layout(
         title_text=f"{yaxis_title}",
-        xaxis=dict(title='Time', title_font_size=14),
-        yaxis=dict(title=yaxis_title, title_font_size=14),
+        xaxis=dict(
+            title='Time', 
+            title_font_size=14,
+            tickformat='%Y-%m-%d %H:%M',
+            gridcolor='grey',  # Change grid line color if needed
+            showgrid=True,
+            griddash='dash',  # Set grid line style
+            dtick=3600000 * 6  # 6 hours in milliseconds
+        ),
+        yaxis=dict(
+            title=yaxis_title, 
+            title_font_size=14
+        ),
         margin=dict(l=10, r=10, t=30, b=40),
         title_font_size=16,
+        legend=dict(
+            y=-0.1,  # Adjust this value to move the legend up or down
+            x=0.5,  # Adjust this value to move the legend left or right
+            xanchor="center",  # Anchor the legend at its center
+            orientation="h"  # Horizontal orientation
+        )
     )
-    fig.update_xaxes(tickformat='%Y-%m-%d %H:%M')
 
     return fig
 
-
 def historical_wind_graphs(data):
     # Lookback period slider
-    lookback_hours = st.slider("Select lookback period in hours", 1, 48, 24)
-
-    selected_stations = st.multiselect("Select Stations", options=list(data.keys()), default=list(data.keys()))
+    lookback_hours = st.slider("Select lookback period in hours", 1, 48, 10)
+    default_station_historical = ["Barten", "Modvaberget", "Tylderingen"]
+    selected_stations = st.multiselect("Select Stations", options=list(data.keys()), default=default_station_historical)
 
     if selected_stations:
         # Filter data based on lookback period and plot
-        for data_type, yaxis_title in [('wind_strength', 'Wind Strength (m/s)'), ('wind_angle', 'Wind Angle (degrees)'), ('wind_gust', 'Wind Gust (m/s)')]:
+        for data_type, yaxis_title in [('wind_strength', 'Wind Strength (m/s)'), ('wind_angle', 'Wind Angle (degrees)')]:
             fig = plot_wind_data(data, selected_stations, data_type, yaxis_title, lookback_hours)
             st.plotly_chart(fig, use_container_width=True)
 
