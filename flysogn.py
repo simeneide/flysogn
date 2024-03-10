@@ -273,6 +273,7 @@ def show_holfuy_widgets():
             height=170
     )
 if __name__ == "__main__":
+    st.set_page_config(page_title="Flysogn",page_icon="🪂")
     data = utils.get_weather_measurements()
 
     # Create tabs
