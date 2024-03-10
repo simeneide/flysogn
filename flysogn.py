@@ -284,7 +284,7 @@ if __name__ == "__main__":
         <style>
         iframe {
             width: 100%;
-            min-height: 400px;
+            min-height: 200px;
             height: 100%:
         }
         </style>
