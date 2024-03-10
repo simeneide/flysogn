@@ -280,6 +280,18 @@ if __name__ == "__main__":
     # Create tabs
     tab1, tab2, tab3, tab4, tab_windy, tab_holfuy = st.tabs(["Live map", "Historical Wind", "Wind roses", "Webcams","Windy", "holfuy"])
 
+    # Make folio map width response:
+    # https://github.com/gee-community/geemap/issues/713
+    st.markdown("""
+        <style>
+        iframe {
+            width: 100%;
+            min-height: 400px;
+            height: 100%:
+        }
+        </style>
+        """, unsafe_allow_html=True)
+
     # Content for the first tab
     with tab1:
         build_live_map(data)
