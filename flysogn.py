@@ -273,8 +273,6 @@ def show_holfuy_widgets():
             height=170
     )
 if __name__ == "__main__":
-    st.title("Flyinfo Sogn")
-    st.text("Information gathered from various sources")
     data = utils.get_weather_measurements()
 
     # Create tabs
@@ -305,3 +303,6 @@ if __name__ == "__main__":
         show_windy()
     with tab_holfuy:
         show_holfuy_widgets()
+
+    st.title("Flyinfo Sogn")
+    st.text("Information gathered from various sources. Hobby project because why not.")
