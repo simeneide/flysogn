@@ -118,6 +118,9 @@ def collect_holfuy_data(station):
 
 
 def get_weather_measurements(lookback=24):
+    """
+    lookback=24 # hrs
+    """
     output = {}
     ### Storhogen
     output['Storhogen'] = get_storhogen_data()

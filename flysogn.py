@@ -1,24 +1,22 @@
 #%% 
 import streamlit as st
-import requests
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
-import plotly.express as px
-import geopandas as gpd
-import shapely.geometry
-from shapely.affinity import affine_transform as T
-from shapely.affinity import rotate as R
 import streamlit.components.v1 as components
 import utils
 
 import folium
 from folium.features import DivIcon
-import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 from streamlit_folium import folium_static
 from matplotlib.colors import to_hex, LinearSegmentedColormap
 from windrose import WindroseAxes
+
+# Set correct timezone
+import os, time
+os.environ['TZ'] = 'CET'
+time.tzset()
 
 def build_live_map(data):
     def interpolate_color(wind_speed, thresholds=[2, 8, 14], colors=['white', 'green', 'red', 'black']):
