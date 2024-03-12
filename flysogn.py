@@ -237,9 +237,14 @@ def plot_wind_data(df_dict, selected_stations, data_type, yaxis_title, lookback_
 
 def historical_wind_graphs(data):
     # Lookback period slider
-    lookback_hours = st.slider("Select lookback period in hours", 1, 48, 10)
-    default_station_historical = ["Barten", "Modvaberget", "Tylderingen"]
-    selected_stations = st.multiselect("Select Stations", options=list(data.keys()), default=default_station_historical)
+    # Add columns for this
+    col1, col2 = st.columns(2)
+    with col1:
+        lookback_hours = st.slider("Select lookback period in hours", 1, 48, 10)
+    
+    with col2:
+        default_station_historical = ["Barten", "Modvaberget", "Tylderingen"]
+        selected_stations = st.multiselect("Select Stations", options=list(data.keys()), default=default_station_historical)
 
     if selected_stations:
         # Filter data based on lookback period and plot
@@ -270,7 +275,7 @@ def show_holfuy_widgets():
             height=170
     )
 if __name__ == "__main__":
-    st.set_page_config(page_title="Flysogn",page_icon="🪂")
+    st.set_page_config(page_title="Flysogn",page_icon="🪂", layout="wide")
     data = utils.get_weather_measurements()
 
     # Create tabs
