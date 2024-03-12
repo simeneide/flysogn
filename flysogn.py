@@ -190,15 +190,15 @@ def plot_wind_data(df_dict, selected_stations, data_type, yaxis_title, lookback_
             fig.add_trace(go.Scatter(
                 x=filtered_df.index, 
                 y=filtered_df[data_type], 
-                mode='lines+markers', 
+                mode='markers' if data_type == 'wind_angle' else 'lines+markers',  # Change mode to 'markers' for wind angle
                 name=station,
                 line=dict(width=2, color=colors[i % len(colors)]),  # Use color from colors list
                 marker=dict(size=5),  # Adjust marker size here
                 legendgroup=station,  # Assign legend group
             ))
 
-        # Add wind gust data as a scatter plot with markers
-        if 'wind_gust' in filtered_df.columns:
+        # Add wind gust data as a scatter plot with markers only for wind strength
+        if 'wind_gust' in filtered_df.columns and data_type == 'wind_strength':
             fig.add_trace(go.Scatter(
                 x=filtered_df.index, 
                 y=filtered_df['wind_gust'], 
@@ -209,7 +209,6 @@ def plot_wind_data(df_dict, selected_stations, data_type, yaxis_title, lookback_
                 showlegend=False,  # Hide legend entry
             ))
 
-    # Update layout
     # Update layout
     fig.update_layout(
         title_text=f"{yaxis_title}",
