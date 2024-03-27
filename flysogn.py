@@ -164,6 +164,7 @@ def plot_wind_data(df_dict, selected_stations, data_type, yaxis_title, lookback_
                 showlegend=False,  # Hide legend entry
             ))
 
+
     # Update layout
     fig.update_layout(
         title_text=f"{yaxis_title}",
@@ -174,7 +175,7 @@ def plot_wind_data(df_dict, selected_stations, data_type, yaxis_title, lookback_
             gridcolor='grey',  # Change grid line color if needed
             showgrid=True,
             griddash='dash',  # Set grid line style
-            dtick=3600000 * 6  # 6 hours in milliseconds
+            dtick=3600000 * 1  # 1 hours in milliseconds
         ),
         yaxis=dict(
             title=yaxis_title, 
