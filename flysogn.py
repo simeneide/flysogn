@@ -232,12 +232,17 @@ def show_holfuy_widgets():
             src=f"https://widget.holfuy.com/?station={stationId}&su=m/s&t=C&lang=en&mode=average&avgrows=32",
             height=170
     )
+        
+def show_puretrack():
+    url = "https://www.burnair.cloud/?layers=%2Clz%2Clzp%2Cto%2Ctodhv%2Clp%2Cpz%2Cfp%2Cna%2Cle%2Cca%2Cvw%2Ccc%2Ctt%2Cpt%2Ctl%2Ctp%2Cpp%2Cmp%2Cw-ch-uw%2Cc_20&visibility=%2Coff%2Coff%2Coff%2Coff%2Coff%2Coff%2Coff%2Coff%2Coff%2Coff%2Coff%2Coff%2Coff%2Coff%2Coff%2Coff%2Coff%2Coff%2Coff%2Cauto&base=bbt#12/61.2402/7.1298"
+    components.iframe(url, height=600)
+    
 if __name__ == "__main__":
     st.set_page_config(page_title="Flysogn",page_icon="🪂", layout="wide")
     data = utils.get_weather_measurements()
 
     # Create tabs
-    tab1, tab2, tab3, tab4, tab_windy, tab_holfuy = st.tabs(["Live map", "Historical Wind", "Wind roses", "Webcams","Windy", "holfuy"])
+    tab_livemap, tab_livetrack, tab_history, tab_windrose, tab_webcam, tab_windy, tab_holfuy = st.tabs(["Live map","Tracking", "Historical Wind", "Wind roses", "Webcams","Windy", "holfuy"])
 
     # Make folio map width response:
     # https://github.com/gee-community/geemap/issues/713
@@ -252,13 +257,15 @@ if __name__ == "__main__":
         """, unsafe_allow_html=True)
 
     # Content for the first tab
-    with tab1:
+    with tab_livemap:
         build_live_map(data)
-    with tab2:
+    with tab_livetrack:
+        show_puretrack()
+    with tab_history:
         historical_wind_graphs(data)
-    with tab3:
+    with tab_windrose:
         wind_rose(data)
-    with tab4:
+    with tab_webcam:
         show_webcams()
     with tab_windy:
         show_windy()
