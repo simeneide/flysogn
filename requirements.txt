@@ -12,3 +12,5 @@ matplotlib
 folium
 streamlit-folium
 windrose
+xarray
+siphon
