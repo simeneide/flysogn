@@ -240,9 +240,9 @@ def show_puretrack():
 def show_forecast():
     lat = 61.22908
     lon = 7.09674
-    st.slider("Max altitude", 0, 10000, 3000)
+    altitude_max = st.slider("Max altitude", 0, 10000, 3000)
     with st.spinner('Fetching data...'):
-        subset = meps.load_meps_for_location(lat, lon, tol=0.1, altitude_min=0, altitude_max=3000)
+        subset = meps.load_meps_for_location(lat, lon, tol=0.1, altitude_min=0, altitude_max=altitude_max)
     with st.spinner('Building wind map...'):
         wind_fig = meps.create_wind_map(subset)
         st.pyplot(wind_fig)
