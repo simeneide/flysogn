@@ -5,14 +5,14 @@ import numpy as np
 import plotly.graph_objects as go
 import streamlit.components.v1 as components
 import utils
-
+import datetime
 import folium
 from folium.features import DivIcon
 import matplotlib.pyplot as plt
 from streamlit_folium import folium_static
 from matplotlib.colors import to_hex, LinearSegmentedColormap
 from windrose import WindroseAxes
-
+import meps
 # Set correct timezone
 import os, time
 os.environ['TZ'] = 'CET'
@@ -236,13 +236,24 @@ def show_holfuy_widgets():
 def show_puretrack():
     url = "https://www.burnair.cloud/?layers=%2Clz%2Clzp%2Cto%2Ctodhv%2Clp%2Cpz%2Cfp%2Cna%2Cle%2Cca%2Cvw%2Ccc%2Ctt%2Cpt%2Ctl%2Ctp%2Cpp%2Cmp%2Cw-ch-uw%2Cc_20&visibility=%2Coff%2Coff%2Coff%2Coff%2Coff%2Coff%2Coff%2Coff%2Coff%2Coff%2Coff%2Coff%2Coff%2Coff%2Coff%2Coff%2Coff%2Coff%2Coff%2Cauto&base=bbt#12/61.2402/7.1298"
     components.iframe(url, height=600)
-    
+
+def show_forecast():
+    lat = 61.22908
+    lon = 7.09674
+    st.slider("Max altitude", 0, 10000, 3000)
+    subset = meps.load_meps_for_location(lat, lon, tol=0.1, altitude_min=0, altitude_max=3000)
+    wind_fig = meps.create_wind_map(subset)
+    st.pyplot(wind_fig)
+    date = st.date_input("Sounding date", datetime.datetime.today())
+    hour = st.slider("Sounding hour", 0, 23, 14)
+    sounding_fig = meps.create_sounding(subset, date=date, hour=hour)
+    st.pyplot(sounding_fig)
 if __name__ == "__main__":
     st.set_page_config(page_title="Flysogn",page_icon="🪂", layout="wide")
     data = utils.get_weather_measurements()
 
     # Create tabs
-    tab_livemap, tab_livetrack, tab_history, tab_windrose, tab_webcam, tab_windy, tab_holfuy = st.tabs(["Live map","Tracking", "Historical Wind", "Wind roses", "Webcams","Windy", "holfuy"])
+    tab_livemap, tab_history, tab_forecast, tab_windrose, tab_livetrack, tab_webcam, tab_windy, tab_holfuy = st.tabs(["Live map", "Historical Wind", "Forecast", "Wind roses","livetrack", "Webcams","Windy", "holfuy"])
 
     # Make folio map width response:
     # https://github.com/gee-community/geemap/issues/713
@@ -259,6 +270,9 @@ if __name__ == "__main__":
     # Content for the first tab
     with tab_livemap:
         build_live_map(data)
+
+    with tab_forecast:
+        show_forecast()
     with tab_livetrack:
         show_puretrack()
     with tab_history:
