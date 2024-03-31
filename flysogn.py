@@ -270,13 +270,12 @@ if __name__ == "__main__":
     # Content for the first tab
     with tab_livemap:
         build_live_map(data)
-
+    with tab_history:
+        historical_wind_graphs(data)
     with tab_forecast:
         show_forecast()
     with tab_livetrack:
         show_puretrack()
-    with tab_history:
-        historical_wind_graphs(data)
     with tab_windrose:
         wind_rose(data)
     with tab_webcam:
