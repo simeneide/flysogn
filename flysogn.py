@@ -241,17 +241,20 @@ def show_forecast():
     lat = 61.22908
     lon = 7.09674
     st.slider("Max altitude", 0, 10000, 3000)
-    with st.spinner('Wait for it...'):
+    with st.spinner('Fetching data...'):
         subset = meps.load_meps_for_location(lat, lon, tol=0.1, altitude_min=0, altitude_max=3000)
-    wind_fig = meps.create_wind_map(subset)
-    st.pyplot(wind_fig)
+    with st.spinner('Building wind map...'):
+        wind_fig = meps.create_wind_map(subset)
+        st.pyplot(wind_fig)
     date = st.date_input("Sounding date", datetime.datetime.today())
     hour = st.slider("Sounding hour", 0, 23, 14)
-    sounding_fig = meps.create_sounding(subset, date=date, hour=hour)
+    with st.spinner('Building sounding...'):
+        sounding_fig = meps.create_sounding(subset, date=date, hour=hour)
     st.pyplot(sounding_fig)
 if __name__ == "__main__":
     st.set_page_config(page_title="Flysogn",page_icon="🪂", layout="wide")
-    data = utils.get_weather_measurements()
+    with st.spinner('Wait for it...'):
+        data = utils.get_weather_measurements()
 
     # Create tabs
     tab_livemap, tab_history, tab_forecast, tab_windrose, tab_livetrack, tab_webcam, tab_windy, tab_holfuy = st.tabs(["Live map", "Historical Wind", "Forecast", "Wind roses","livetrack", "Webcams","Windy", "holfuy"])
