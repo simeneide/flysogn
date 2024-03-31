@@ -251,6 +251,8 @@ def show_forecast():
     with st.spinner('Building sounding...'):
         sounding_fig = meps.create_sounding(subset, date=date, hour=hour)
     st.pyplot(sounding_fig)
+
+    st.text("Wind and sounding data from MEPS model (main model used by met.no). Thermal (green) is assuming ground temperature is 3 degrees higher than surrounding air. The location for both wind and sounding plot is Sogndal (61.22, 7.09). Ive probably made many errors in this process.")
 if __name__ == "__main__":
     st.set_page_config(page_title="Flysogn",page_icon="🪂", layout="wide")
     with st.spinner('Wait for it...'):
