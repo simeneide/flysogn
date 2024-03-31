@@ -14,3 +14,4 @@ streamlit-folium
 windrose
 xarray
 siphon
+netcdf4
