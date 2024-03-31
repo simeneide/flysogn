@@ -241,7 +241,8 @@ def show_forecast():
     lat = 61.22908
     lon = 7.09674
     st.slider("Max altitude", 0, 10000, 3000)
-    subset = meps.load_meps_for_location(lat, lon, tol=0.1, altitude_min=0, altitude_max=3000)
+    with st.spinner('Wait for it...'):
+        subset = meps.load_meps_for_location(lat, lon, tol=0.1, altitude_min=0, altitude_max=3000)
     wind_fig = meps.create_wind_map(subset)
     st.pyplot(wind_fig)
     date = st.date_input("Sounding date", datetime.datetime.today())
@@ -273,6 +274,7 @@ if __name__ == "__main__":
     with tab_history:
         historical_wind_graphs(data)
     with tab_forecast:
+        
         show_forecast()
     with tab_livetrack:
         show_puretrack()
