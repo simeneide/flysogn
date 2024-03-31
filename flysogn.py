@@ -240,16 +240,28 @@ def show_puretrack():
 def show_forecast():
     lat = 61.22908
     lon = 7.09674
-    altitude_max = st.slider("Max altitude", 0, 10000, 3000)
+    
     with st.spinner('Fetching data...'):
-        subset = meps.load_meps_for_location(lat, lon, tol=0.1, altitude_min=0, altitude_max=altitude_max)
+        subset = meps.load_meps_for_location(lat, lon, tol=0.1, altitude_min=0, altitude_max=4000)
+
+    altitude_max = st.slider("Max altitude", 0, 4000, 3000)
+    start_stop_time = [subset.time.min().values.astype('M8[ms]').astype('O'), subset.time.max().values.astype('M8[ms]').astype('O')]
+    now = datetime.datetime.now().replace(minute=0, second=0, microsecond=0)
+    date_options = pd.date_range(start_stop_time[0], start_stop_time[1], freq="H")
+    date_start, date_end = st.select_slider("Time range",
+                     options=date_options, value=[now, now+datetime.timedelta(1)])
+    
     with st.spinner('Building wind map...'):
-        wind_fig = meps.create_wind_map(subset)
+        wind_fig = meps.create_wind_map(
+            subset,
+            date_start=date_start, 
+            date_end=date_end, 
+            altitude_max=altitude_max)
         st.pyplot(wind_fig)
-    date = st.date_input("Sounding date", datetime.datetime.today())
-    hour = st.slider("Sounding hour", 0, 23, 14)
+    
+    date = st.select_slider("Sounding timestamp", options=date_options, value=now)
     with st.spinner('Building sounding...'):
-        sounding_fig = meps.create_sounding(subset, date=date, hour=hour)
+        sounding_fig = meps.create_sounding(subset, date=date.date(), hour=date.hour, altitude_max=altitude_max)
     st.pyplot(sounding_fig)
 
     st.markdown("Wind and sounding data from MEPS model (main model used by met.no). Thermal (green) is assuming ground temperature is 3 degrees higher than surrounding air. The location for both wind and sounding plot is Sogndal (61.22, 7.09). Ive probably made many errors in this process.")

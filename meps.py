@@ -61,29 +61,35 @@ def load_meps_for_location(lat, lon, tol=0.1, altitude_min=0, altitude_max=3000)
 
 #%%
 
-def create_wind_map(subset):
+def create_wind_map(subset, altitude_max=3000, date_start=None, date_end=None):
     windcolors = mcolors.LinearSegmentedColormap.from_list("", ["grey", "green","darkgreen","yellow","orange","darkorange","red", "darkred", "violet","darkviolet"],)
     
     # Create a figure object
-    fig, ax = plt.subplots(figsize=(25, 10))
-    
-    subset.plot.quiver(
+    fig, ax = plt.subplots(figsize=(15, 7))
+    new_altitude = np.arange(0, altitude_max, altitude_max/20)
+    if date_start is None:
+        date_start = subset.time.min().values
+    if date_end is None:
+        date_end = subset.time.max().values
+    new_timestamps = pd.date_range(date_start, date_end, 20)
+    windplot_data = subset.interp(altitude=new_altitude, time=new_timestamps)
+    windplot_data.plot.quiver(
         x='time', y='altitude', u='x_wind_ml', v='y_wind_ml', 
         hue="wind_speed", 
         cmap = windcolors,
         vmin=2, vmax=20,
-        pivot="middle", headwidth=4, headlength=6,
-        ax=ax  # Add this line to plot on the created axes
+        pivot="middle",# headwidth=4, headlength=6,
+        ax=ax  # Add this line to plot on the created axes 
     )
 
     # normalize wind speed for color mapping
     norm = plt.Normalize(0, 20)
 
     # add numerical labels to the plot
-    for x, t in enumerate(subset.time.values):
-        for y, alt in enumerate(subset.altitude.values):
-            color = windcolors(norm(subset.wind_speed[x,y]))
-            ax.text(t, alt-50, f"{subset.wind_speed[x,y]:.1f}", size=6, color=color)
+    for x, t in enumerate(windplot_data.time.values):
+        for y, alt in enumerate(windplot_data.altitude.values):
+            color = windcolors(norm(windplot_data.wind_speed[x,y]))
+            ax.text(t, alt-50, f"{windplot_data.wind_speed[x,y]:.1f}", size=6, color=color)
     
     plt.title("Wind in Sogndal [m/s]")
     plt.yscale("linear")
@@ -92,9 +98,9 @@ def create_wind_map(subset):
     return fig
 
 # %%
-def create_sounding(subset, date, hour, hour_end=None):
+def create_sounding(subset, date, hour, hour_end=None, altitude_max=3000):
     lapse_rate = 0.0098 # in degrees Celsius per meter
-
+    subset = subset.where(subset.altitude< altitude_max,drop=True)
     # Create a figure object
     fig, ax = plt.subplots()
 
@@ -148,5 +154,5 @@ if __name__ == "__main__":
     lat = 61.22908
     lon = 7.09674
     subset = load_meps_for_location(lat, lon, tol=0.1, altitude_min=0, altitude_max=3000)
-    wind_fig = create_wind_map(subset)
+    wind_fig = create_wind_map(subset,altitude_max=3000)
     sounding_fig = create_sounding(subset, date="2024-04-02", hour=15)
