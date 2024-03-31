@@ -252,7 +252,7 @@ def show_forecast():
         sounding_fig = meps.create_sounding(subset, date=date, hour=hour)
     st.pyplot(sounding_fig)
 
-    st.text("Wind and sounding data from MEPS model (main model used by met.no). Thermal (green) is assuming ground temperature is 3 degrees higher than surrounding air. The location for both wind and sounding plot is Sogndal (61.22, 7.09). Ive probably made many errors in this process.")
+    st.markdown("Wind and sounding data from MEPS model (main model used by met.no). Thermal (green) is assuming ground temperature is 3 degrees higher than surrounding air. The location for both wind and sounding plot is Sogndal (61.22, 7.09). Ive probably made many errors in this process.")
 if __name__ == "__main__":
     st.set_page_config(page_title="Flysogn",page_icon="🪂", layout="wide")
     with st.spinner('Wait for it...'):
@@ -278,9 +278,6 @@ if __name__ == "__main__":
         build_live_map(data)
     with tab_history:
         historical_wind_graphs(data)
-    with tab_forecast:
-        
-        show_forecast()
     with tab_livetrack:
         show_puretrack()
     with tab_windrose:
@@ -291,6 +288,8 @@ if __name__ == "__main__":
         show_windy()
     with tab_holfuy:
         show_holfuy_widgets()
+    with tab_forecast:
+        show_forecast()
 
     st.title("Flyinfo Sogn")
     st.text("Information gathered from various sources. Hobby project because why not.")
