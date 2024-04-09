@@ -59,7 +59,11 @@ def _response_history_to_dict(resp, parent_key: str = '') -> dict:
                 data_dict = v['list']
                 for k1 in list(data_dict.keys()):
                     k_new = _t2dt(k1)
-                    data_dict[k_new] = float(data_dict.pop(k1))
+                    try:
+                        data_dict[k_new] = float(data_dict.pop(k1))
+                    except:
+                        Warning(f'Could not convert {k1} to float')
+                        data_dict[k_new] = -100
                 v['list'] = data_dict
                 items.append((new_key, v))
             else:
