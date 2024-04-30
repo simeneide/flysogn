@@ -250,10 +250,21 @@ def show_forecast():
     altitude_max = st.slider("Max altitude", 0, 4000, 3000)
     start_stop_time = [subset.time.min().values.astype('M8[ms]').astype('O'), subset.time.max().values.astype('M8[ms]').astype('O')]
     now = datetime.datetime.now().replace(minute=0, second=0, microsecond=0)
-    date_options = pd.date_range(start_stop_time[0], start_stop_time[1], freq="H")
-    date_start, date_end = st.select_slider("Time range",
-                     options=date_options, value=[now, now+datetime.timedelta(1)])
+    #date_options = pd.date_range(start_stop_time[0], start_stop_time[1], freq="H")
+    #date_start, date_end = st.select_slider("Time range",
+    #                 options=date_options, value=[now, now+datetime.timedelta(1)])
     
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        date_start = st.date_input("Start date", value=start_stop_time[0], min_value=start_stop_time[0], max_value=start_stop_time[1])
+    with col2:
+        time_start = st.time_input("Start time", value=start_stop_time[0].time())
+        date_start = datetime.datetime.combine(date_start, time_start)
+    with col3:
+        date_end = st.date_input("End date", value=start_stop_time[1], min_value=date_start, max_value=start_stop_time[1])
+    with col4:
+        time_end = st.time_input("End time", value=start_stop_time[1].time())
+        date_end = datetime.datetime.combine(date_end, time_end)
     @st.cache_data(ttl=10)
     def build_wind_map(_subset, date_start, date_end, altitude_max):
         with st.spinner('Building wind map...'):
@@ -265,7 +276,15 @@ def show_forecast():
             return wind_fig
     st.pyplot(build_wind_map(subset, date_start, date_end, altitude_max))
     
-    date = st.select_slider("Sounding timestamp", options=date_options, value=now)
+    st.markdown("---")
+    col1, col2 = st.columns(2)
+    with col1:
+        sounding_date = st.date_input("Sounding date", value=now.date(), min_value=start_stop_time[0], max_value=start_stop_time[1])
+    with col2:
+        # set value to 1400
+        sounding_time = st.time_input("Sounding time", value=datetime.time(14, 0))
+    date = datetime.datetime.combine(sounding_date, sounding_time)
+
     @st.cache_data(ttl=7200)
     def build_sounding(_subset, date, altitude_max):
         with st.spinner('Building sounding...'):
