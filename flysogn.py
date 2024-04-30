@@ -241,8 +241,11 @@ def show_forecast():
     lat = 61.22908
     lon = 7.09674
     
-    with st.spinner('Fetching data...'):
-        subset = meps.load_meps_for_location(lat, lon, tol=0.1, altitude_min=0, altitude_max=4000)
+    @st.cache_data(ttl=7200)
+    def load_data():
+        with st.spinner('Fetching data...'):
+            return meps.load_meps_for_location(lat, lon, tol=0.1, altitude_min=0, altitude_max=4000)
+    subset = load_data()
 
     altitude_max = st.slider("Max altitude", 0, 4000, 3000)
     start_stop_time = [subset.time.min().values.astype('M8[ms]').astype('O'), subset.time.max().values.astype('M8[ms]').astype('O')]
@@ -251,18 +254,24 @@ def show_forecast():
     date_start, date_end = st.select_slider("Time range",
                      options=date_options, value=[now, now+datetime.timedelta(1)])
     
-    with st.spinner('Building wind map...'):
-        wind_fig = meps.create_wind_map(
-            subset,
-            date_start=date_start, 
-            date_end=date_end, 
-            altitude_max=altitude_max)
-        st.pyplot(wind_fig)
+    @st.cache_data(ttl=7200)
+    def build_wind_map(_subset, date_start, date_end, altitude_max):
+        with st.spinner('Building wind map...'):
+            wind_fig = meps.create_wind_map(
+                _subset,
+                date_start=date_start, 
+                date_end=date_end, 
+                altitude_max=altitude_max)
+            return wind_fig
+    st.pyplot(build_wind_map(subset, date_start, date_end, altitude_max))
     
     date = st.select_slider("Sounding timestamp", options=date_options, value=now)
-    with st.spinner('Building sounding...'):
-        sounding_fig = meps.create_sounding(subset, date=date.date(), hour=date.hour, altitude_max=altitude_max)
-    st.pyplot(sounding_fig)
+    @st.cache_data(ttl=7200)
+    def build_sounding(_subset, date, altitude_max):
+        with st.spinner('Building sounding...'):
+            sounding_fig = meps.create_sounding(_subset, date=date.date(), hour=date.hour, altitude_max=altitude_max)
+        return sounding_fig
+    st.pyplot(build_sounding(subset, date, altitude_max))
 
     st.markdown("Wind and sounding data from MEPS model (main model used by met.no). Thermal (green) is assuming ground temperature is 3 degrees higher than surrounding air. The location for both wind and sounding plot is Sogndal (61.22, 7.09). Ive probably made many errors in this process.")
 if __name__ == "__main__":

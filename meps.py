@@ -107,7 +107,7 @@ def create_sounding(subset, date, hour, hour_end=None, altitude_max=3000):
     # Define the dry adiabatic lapse rate
     def add_dry_adiabatic_lines(ds):
         # Define a range of temperatures at sea level
-        T0 = np.arange(-5, 20, 5)  # temperatures from -40°C to 40°C in steps of 10°C
+        T0 = np.arange(-40, 40, 5)  # temperatures from -40°C to 40°C in steps of 10°C
 
         # Create a 2D grid of temperatures and altitudes
         T0, altitude = np.meshgrid(T0, ds.altitude)
@@ -142,8 +142,8 @@ def create_sounding(subset, date, hour, hour_end=None, altitude_max=3000):
     ax.set_ylabel('Altitude (m)')
     ax.set_title(f'Temperature Profile and Dry Adiabatic Lapse Rate for {date}')
     ax.legend(title='Time')
-    xmin, xmax = ds_time['air_temperature_ml'].min().values-273.3, ds_time['air_temperature_ml'].max().values-273.3
-    ax.set_xlim(-10,10)
+    xmin, xmax = ds_time['air_temperature_ml'].min().values-273.3, ds_time['air_temperature_ml'].max().values-273.3+3
+    ax.set_xlim(xmin, xmax)
     ax.grid(True)
 
     # Return the figure object
