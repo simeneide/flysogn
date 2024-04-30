@@ -117,7 +117,7 @@ def collect_holfuy_data(station):
     return station
 
 
-@st.cache_data(ttl=7200)
+@st.cache_data(ttl=180)
 def get_weather_measurements(lookback=24):
     """
     lookback=24 # hrs
