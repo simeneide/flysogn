@@ -23,6 +23,7 @@ def load_meps_for_location(lat, lon, tol=0.1, altitude_min=0, altitude_max=3000)
         (np.abs(dataset.latitude - lat) < tol) & (np.abs(dataset.longitude - lon) < tol), 
         drop=True
     )
+    subset.load()
 
     def hybrid_to_height(ds):
         """
@@ -60,10 +61,35 @@ def load_meps_for_location(lat, lon, tol=0.1, altitude_min=0, altitude_max=3000)
     return subset
 
 #%%
+def compute_thermal_temp_difference(subset):
+    lapse_rate = 0.0098
+    air_temp = (subset['air_temperature_ml']-273.3).ffill(dim='altitude')
+    ground_temp = 3+ air_temp.where(air_temp.altitude == air_temp.altitude.min())
+    ground_temp_filled = ground_temp.bfill(dim='altitude')
+    temp_parcel = ground_temp_filled - lapse_rate * air_temp.altitude
+    #temp_parcel.plot()
+    thermal_temp_diff = (temp_parcel - air_temp).clip(min=0)
+    return thermal_temp_diff
+
 
 def create_wind_map(subset, altitude_max=3000, date_start=None, date_end=None):
+    """
+    altitude_max = 3000
+    date_start = None
+    date_end = None
+    """
     windcolors = mcolors.LinearSegmentedColormap.from_list("", ["grey", "green","darkgreen","yellow","orange","darkorange","red", "darkred", "violet","darkviolet"],)
-    
+
+    # build colorscale for thermal temperature difference
+    colors = [(1, 1, 1),  # white
+              (1, 1, 1),  # white
+            (1, 0, 0),  # red
+            (0.58, 0, 0.83)]  # violet
+    positions = [0, 0.05,0.5, 1]  # transition points
+
+    # Create the colormap
+    tempcolors = mcolors.LinearSegmentedColormap.from_list("", list(zip(positions, colors)))
+
     # Create a figure object
     fig, ax = plt.subplots(figsize=(15, 7))
     new_altitude = np.arange(0, altitude_max, altitude_max/20)
@@ -73,7 +99,15 @@ def create_wind_map(subset, altitude_max=3000, date_start=None, date_end=None):
         date_end = subset.time.max().values
     new_timestamps = pd.date_range(date_start, date_end, 20)
     windplot_data = subset.interp(altitude=new_altitude, time=new_timestamps)
-    windplot_data.plot.quiver(
+
+    # Build thermal temperature difference plot
+    thermal_temp_diff = compute_thermal_temp_difference(subset)
+    thermal_temp_diff = thermal_temp_diff.interp(altitude=new_altitude, time=new_timestamps).bfill(dim='altitude')
+    contourf = ax.contourf(windplot_data.time, windplot_data.altitude, thermal_temp_diff.T, cmap=tempcolors, alpha=0.5, vmin=0, vmax=4)
+    fig.colorbar(contourf, ax=ax, label='Thermal Temperature Difference (°C)', pad=0.01, orientation='vertical')
+    
+    # Wind quiver plot
+    quiverplot = windplot_data.plot.quiver(
         x='time', y='altitude', u='x_wind_ml', v='y_wind_ml', 
         hue="wind_speed", 
         cmap = windcolors,
@@ -81,6 +115,8 @@ def create_wind_map(subset, altitude_max=3000, date_start=None, date_end=None):
         pivot="middle",# headwidth=4, headlength=6,
         ax=ax  # Add this line to plot on the created axes 
     )
+    quiverplot.colorbar.set_label("Wind Speed  [m/s]")
+    quiverplot.colorbar.pad = 0.01
 
     # normalize wind speed for color mapping
     norm = plt.Normalize(0, 20)
@@ -90,14 +126,13 @@ def create_wind_map(subset, altitude_max=3000, date_start=None, date_end=None):
         for y, alt in enumerate(windplot_data.altitude.values):
             color = windcolors(norm(windplot_data.wind_speed[x,y]))
             ax.text(t, alt-50, f"{windplot_data.wind_speed[x,y]:.1f}", size=6, color=color)
-    
-    plt.title("Wind in Sogndal [m/s]")
+    plt.title("Wind and thermals in Sogndal")
     plt.yscale("linear")
 
     # Return the figure object
     return fig
 
-# %%
+#%%
 def create_sounding(subset, date, hour, hour_end=None, altitude_max=3000):
     lapse_rate = 0.0098 # in degrees Celsius per meter
     subset = subset.where(subset.altitude< altitude_max,drop=True)
@@ -154,5 +189,5 @@ if __name__ == "__main__":
     lat = 61.22908
     lon = 7.09674
     subset = load_meps_for_location(lat, lon, tol=0.1, altitude_min=0, altitude_max=3000)
-    wind_fig = create_wind_map(subset,altitude_max=3000)
+    wind_fig = create_wind_map(subset, altitude_max=3000)
     sounding_fig = create_sounding(subset, date="2024-04-02", hour=15)

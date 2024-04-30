@@ -254,7 +254,7 @@ def show_forecast():
     date_start, date_end = st.select_slider("Time range",
                      options=date_options, value=[now, now+datetime.timedelta(1)])
     
-    @st.cache_data(ttl=7200)
+    @st.cache_data(ttl=10)
     def build_wind_map(_subset, date_start, date_end, altitude_max):
         with st.spinner('Building wind map...'):
             wind_fig = meps.create_wind_map(
