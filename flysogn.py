@@ -247,7 +247,7 @@ def show_forecast():
             return meps.load_meps_for_location(lat, lon, tol=0.1, altitude_min=0, altitude_max=4000)
     subset = load_data()
 
-    altitude_max = st.slider("Max altitude", 0, 4000, 3000)
+    altitude_max = st.number_input("Max altitude", 0, 4000, 3000, step=500)
     start_stop_time = [subset.time.min().values.astype('M8[ms]').astype('O'), subset.time.max().values.astype('M8[ms]').astype('O')]
     now = datetime.datetime.now().replace(minute=0, second=0, microsecond=0)
     #date_options = pd.date_range(start_stop_time[0], start_stop_time[1], freq="H")
