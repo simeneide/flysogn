@@ -5,7 +5,6 @@ import numpy as np
 import plotly.graph_objects as go
 import streamlit.components.v1 as components
 import utils
-import datetime
 import folium
 from folium.features import DivIcon
 import matplotlib.pyplot as plt
