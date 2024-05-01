@@ -18,8 +18,8 @@ def find_latest_meps_file():
     
     # ensemble_dataset: meps_lagged_6_h_vc_2_5km
     datasets = [s for s in catalog.datasets if "meps_det_vc_2_5km" in s]
-    latest_dataset = sorted(datasets)[-1]
-    return latest_dataset
+    dataset_file_path = sorted(datasets)[-1]
+    return dataset_file_path
 
 
 @st.cache_data(ttl=7200)
