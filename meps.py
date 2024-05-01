@@ -5,7 +5,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import matplotlib.colors as mcolors
-
+import streamlit as st
+import datetime
+import matplotlib.dates as mdates
+@st.cache_data(ttl=7200)
 def load_meps_for_location(lat, lon, tol=0.1, altitude_min=0, altitude_max=3000):
 
     # The MEPS dataset: https://github.com/metno/NWPdocs/wiki/MEPS-dataset
@@ -71,13 +74,14 @@ def compute_thermal_temp_difference(subset):
     thermal_temp_diff = (temp_parcel - air_temp).clip(min=0)
     return thermal_temp_diff
 
-
-def create_wind_map(subset, altitude_max=3000, date_start=None, date_end=None):
+@st.cache_data(ttl=60)
+def create_wind_map(_subset, altitude_max=3000, date_start=None, date_end=None):
     """
     altitude_max = 3000
     date_start = None
     date_end = None
     """
+    subset = _subset
     windcolors = mcolors.LinearSegmentedColormap.from_list("", ["grey", "green","darkgreen","yellow","orange","darkorange","red", "darkred", "violet","darkviolet"],)
 
     # build colorscale for thermal temperature difference
@@ -118,6 +122,7 @@ def create_wind_map(subset, altitude_max=3000, date_start=None, date_end=None):
     quiverplot.colorbar.set_label("Wind Speed  [m/s]")
     quiverplot.colorbar.pad = 0.01
 
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
     # normalize wind speed for color mapping
     norm = plt.Normalize(0, 20)
 
@@ -126,14 +131,16 @@ def create_wind_map(subset, altitude_max=3000, date_start=None, date_end=None):
         for y, alt in enumerate(windplot_data.altitude.values):
             color = windcolors(norm(windplot_data.wind_speed[x,y]))
             ax.text(t, alt-50, f"{windplot_data.wind_speed[x,y]:.1f}", size=6, color=color)
-    plt.title("Wind and thermals in Sogndal")
+    plt.title(f"Wind and thermals in Sogndal {date_start.date()}")
     plt.yscale("linear")
 
     # Return the figure object
     return fig
 
 #%%
-def create_sounding(subset, date, hour, hour_end=None, altitude_max=3000):
+@st.cache_data(ttl=7200)
+def create_sounding(_subset, date, hour, hour_end=None, altitude_max=3000):
+    subset = _subset
     lapse_rate = 0.0098 # in degrees Celsius per meter
     subset = subset.where(subset.altitude< altitude_max,drop=True)
     # Create a figure object
@@ -183,7 +190,83 @@ def create_sounding(subset, date, hour, hour_end=None, altitude_max=3000):
 
     # Return the figure object
     return fig
+
 # %%
+def show_forecast():
+    lat = 61.22908
+    lon = 7.09674
+    
+    with st.spinner('Fetching data...'):
+        subset = load_meps_for_location(lat, lon, tol=0.1, altitude_min=0, altitude_max=4000)
+
+    start_stop_time = [subset.time.min().values.astype('M8[ms]').astype('O'), subset.time.max().values.astype('M8[ms]').astype('O')]
+    now = datetime.datetime.now().replace(minute=0, second=0, microsecond=0)
+
+    if "forecast_date" not in st.session_state:
+        st.session_state.forecast_date = now.date()
+    if "forecast_length" not in st.session_state:
+        st.session_state.forecast_length = 1
+    if "altitude_max" not in st.session_state:
+        st.session_state.altitude_max = 3000
+
+    def date_controls():
+        col1, col2, col3 = st.columns([0.2,0.6,0.2])
+
+        with col1:
+            if st.button("⏮️", use_container_width=True):
+                st.session_state.forecast_date -= datetime.timedelta(days=1)
+                st.rerun()
+        with col2:
+            #st.markdown(f"{st.session_state.forecast_date.strftime('%Y-%m-%d')}")
+            st.session_state.forecast_date = st.date_input(
+                "Start date", 
+                value=st.session_state.forecast_date, 
+                min_value=start_stop_time[0], 
+                max_value=start_stop_time[1], 
+                label_visibility="collapsed",
+                disabled=True
+                )
+        with col3:
+            if st.button("⏭️", use_container_width=True, disabled=(st.session_state.forecast_date == start_stop_time[1])):
+                st.session_state.forecast_date += datetime.timedelta(days=1)
+                st.rerun()
+    
+    time_start = datetime.time(0, 0)
+    date_start = datetime.datetime.combine(st.session_state.forecast_date, time_start)
+    date_end= datetime.datetime.combine(st.session_state.forecast_date+datetime.timedelta(days=st.session_state.forecast_length), datetime.time(0, 0))
+    
+    wind_fig = create_wind_map(
+                subset,
+                date_start=date_start, 
+                date_end=date_end, 
+                altitude_max=st.session_state.altitude_max)
+    st.pyplot(wind_fig)
+    date_controls()
+
+    with st.expander("More settings", expanded=False):
+        st.session_state.forecast_length = st.number_input("multiday", 1, 3, 1, step=1,)
+        st.session_state.altitude_max = st.number_input("Max altitude", 0, 4000, 3000, step=500)
+    
+    ############################
+    ######### SOUNDING #########
+    ############################
+    st.markdown("---")
+    with st.expander("Sounding", expanded=False):
+        col1, col2 = st.columns(2)
+        with col1:
+            sounding_date = st.date_input("Sounding date", value=now.date(), min_value=start_stop_time[0], max_value=start_stop_time[1])
+        with col2:
+            # set value to 1400
+            sounding_time = st.time_input("Sounding time", value=datetime.time(14, 0))
+        date = datetime.datetime.combine(sounding_date, sounding_time)
+
+
+        with st.spinner('Building sounding...'):
+            sounding_fig = create_sounding(subset, date=date.date(), hour=date.hour, altitude_max=st.session_state.altitude_max)
+        st.pyplot(sounding_fig)
+
+    st.markdown("Wind and sounding data from MEPS model (main model used by met.no). Thermal (green) is assuming ground temperature is 3 degrees higher than surrounding air. The location for both wind and sounding plot is Sogndal (61.22, 7.09). Ive probably made many errors in this process.")
+
 
 if __name__ == "__main__":
     lat = 61.22908
