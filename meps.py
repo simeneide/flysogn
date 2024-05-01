@@ -8,17 +8,29 @@ import matplotlib.colors as mcolors
 import streamlit as st
 import datetime
 import matplotlib.dates as mdates
-@st.cache_data(ttl=7200)
-def load_meps_for_location(lat, lon, tol=0.1, altitude_min=0, altitude_max=3000):
 
+@st.cache_data(ttl=60)
+def find_latest_meps_file():
     # The MEPS dataset: https://github.com/metno/NWPdocs/wiki/MEPS-dataset
     catalog_url = "https://thredds.met.no/thredds/catalog/mepslatest/catalog.xml"
     # Create a catalog object
     catalog = TDSCatalog(catalog_url)
+    
+    # ensemble_dataset: meps_lagged_6_h_vc_2_5km
     datasets = [s for s in catalog.datasets if "meps_det_vc_2_5km" in s]
     latest_dataset = sorted(datasets)[-1]
+    return latest_dataset
 
-    ds_path = f"https://thredds.met.no/thredds/dodsC/mepslatest/{latest_dataset}"
+
+@st.cache_data(ttl=7200)
+def load_meps_for_location(dataset_file_path, lat, lon, tol=0.1, altitude_min=0, altitude_max=3000):
+    """
+    lat = 61.22908
+    lon = 7.09674
+    tol = 0.1
+
+    """
+    ds_path = f"https://thredds.met.no/thredds/dodsC/mepslatest/{dataset_file_path}"
     dataset = xr.open_dataset(ds_path) # , engine="netcdf4"
 
     # Filter dataset on lat and lon
@@ -197,7 +209,8 @@ def show_forecast():
     lon = 7.09674
     
     with st.spinner('Fetching data...'):
-        subset = load_meps_for_location(lat, lon, tol=0.1, altitude_min=0, altitude_max=4000)
+        dataset_file_path = find_latest_meps_file()
+        subset = load_meps_for_location(dataset_file_path, lat, lon, tol=0.1, altitude_min=0, altitude_max=4000)
 
     start_stop_time = [subset.time.min().values.astype('M8[ms]').astype('O'), subset.time.max().values.astype('M8[ms]').astype('O')]
     now = datetime.datetime.now().replace(minute=0, second=0, microsecond=0)
@@ -271,6 +284,7 @@ def show_forecast():
 if __name__ == "__main__":
     lat = 61.22908
     lon = 7.09674
-    subset = load_meps_for_location(lat, lon, tol=0.1, altitude_min=0, altitude_max=3000)
+    dataset_file_path = find_latest_meps_file()
+    subset = load_meps_for_location(dataset_file_path, lat, lon, tol=0.1, altitude_min=0, altitude_max=3000)
     wind_fig = create_wind_map(subset, altitude_max=3000)
     sounding_fig = create_sounding(subset, date="2024-04-02", hour=15)
