@@ -36,8 +36,8 @@ def load_meps_for_location(file_path=None, altitude_min=0, altitude_max=3000):
     if file_path is None:
         file_path = find_latest_meps_file()
 
-    x_range= "[251:1:265]"
-    y_range= "[449:1:459]"
+    x_range= "[241:1:275]"
+    y_range= "[439:1:469]"
     time_range = "[0:1:66]"
     hybrid_range = "[0:1:64]"
     height_range = "[0:1:0]"
@@ -316,9 +316,10 @@ def show_forecast():
     x_target, y_target = latlon_to_xy(latitude, longitude)
     
     with st.spinner('Fetching data...'):
-        file_path = find_latest_meps_file()
-        if True:
-            subset = load_meps_for_location(file_path)
+        if "file_path" not in st.session_state:
+            st.session_state.file_path = find_latest_meps_file()
+        
+        subset = load_meps_for_location(st.session_state.file_path)
 
     def date_controls():
         start_stop_time = [subset.time.min().values.astype('M8[ms]').astype('O'), subset.time.max().values.astype('M8[ms]').astype('O')]
@@ -396,6 +397,10 @@ def show_forecast():
         st.pyplot(sounding_fig)
 
     st.markdown("Wind and sounding data from MEPS model (main model used by met.no). Thermal (green) is assuming ground temperature is 3 degrees higher than surrounding air. The location for both wind and sounding plot is Sogndal (61.22, 7.09). Ive probably made many errors in this process.")
+
+    # Download new forecast if available
+    st.session_state.file_path = find_latest_meps_file()
+    subset = load_meps_for_location(st.session_state.file_path)
 
 
 if __name__ == "__main__":
