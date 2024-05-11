@@ -319,9 +319,6 @@ def show_forecast():
         file_path = find_latest_meps_file()
         if True:
             subset = load_meps_for_location(file_path)
-            subset.to_netcdf("subset.nc")
-        else:
-            subset = xr.open_dataset("subset.nc")
 
     def date_controls():
         start_stop_time = [subset.time.min().values.astype('M8[ms]').astype('O'), subset.time.max().values.astype('M8[ms]').astype('O')]
@@ -357,7 +354,10 @@ def show_forecast():
 
     date_controls()
     time_start = datetime.time(0, 0)
+    # convert subset.attrs['min_time']='2024-05-11T06:00:00Z' into datetime
+    min_time = datetime.datetime.strptime(subset.attrs['min_time'], "%Y-%m-%dT%H:%M:%SZ")
     date_start = datetime.datetime.combine(st.session_state.forecast_date, time_start)
+    date_start = max(date_start, min_time)
     date_end= datetime.datetime.combine(st.session_state.forecast_date+datetime.timedelta(days=st.session_state.forecast_length), datetime.time(0, 0))
 
     ## MAP
