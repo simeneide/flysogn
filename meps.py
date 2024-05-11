@@ -8,7 +8,7 @@ import matplotlib.colors as mcolors
 import streamlit as st
 import datetime
 import matplotlib.dates as mdates
-from streamlit_folium import folium_static
+#
 from matplotlib.colors import Normalize
 import folium
 from branca.colormap import linear
@@ -323,7 +323,7 @@ def show_forecast():
             st.session_state.file_path = find_latest_meps_file()
         
         subset = load_meps_for_location(st.session_state.file_path)
-        
+
     def date_controls():
         
         start_stop_time = [subset.time.min().values.astype('M8[ms]').astype('O'), subset.time.max().values.astype('M8[ms]').astype('O')]
@@ -367,6 +367,7 @@ def show_forecast():
 
     ## MAP
     m = build_map(subset, date=st.session_state.forecast_date, hour=st.session_state.forecast_time, x_target=x_target, y_target=y_target)
+    from streamlit_folium import folium_static
     folium_static(m)
 
     wind_fig = create_wind_map(
@@ -413,8 +414,12 @@ if __name__ == "__main__":
     x_target, y_target = latlon_to_xy(lat, lon)
     
     dataset_file_path = find_latest_meps_file()
-    subset = xr.open_dataset("subset.nc")
-    subset = load_meps_for_location()#dataset_file_path, lat, lon, tol=0.1, altitude_min=0, altitude_max=3000)
+    local=True
+    if local:
+        subset = xr.open_dataset("subset.nc")
+    else:
+        subset = load_meps_for_location()
+        subset.to_netcdf("subset.nc")
 
     build_map(subset, date="2024-05-13", hour="15")
 
