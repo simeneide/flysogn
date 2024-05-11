@@ -366,9 +366,10 @@ def show_forecast():
     date_end= datetime.datetime.combine(st.session_state.forecast_date+datetime.timedelta(days=st.session_state.forecast_length), datetime.time(0, 0))
 
     ## MAP
-    m = build_map(subset, date=st.session_state.forecast_date, hour=st.session_state.forecast_time, x_target=x_target, y_target=y_target)
-    from streamlit_folium import folium_static
-    folium_static(m)
+    with st.expander("Map", expanded=True):
+        m = build_map(subset, date=st.session_state.forecast_date, hour=st.session_state.forecast_time, x_target=x_target, y_target=y_target)
+        from streamlit_folium import folium_static
+        folium_static(m)
 
     wind_fig = create_wind_map(
                 subset,
