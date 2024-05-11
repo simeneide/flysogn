@@ -311,17 +311,21 @@ def latlon_to_xy(lat, lon):
     return X,Y
 # %%
 def show_forecast():
-    latitude = 61.22908
-    longitude = 7.09
+
+    col1, col2 = st.columns([1, 1])
+    with col1:
+        latitude = st.number_input("latitude", value=61.22908)
+    with col2:
+        longitude = st.number_input("longitude", value=7.09674)
     x_target, y_target = latlon_to_xy(latitude, longitude)
-    
     with st.spinner('Fetching data...'):
         if "file_path" not in st.session_state:
             st.session_state.file_path = find_latest_meps_file()
         
         subset = load_meps_for_location(st.session_state.file_path)
-
+        
     def date_controls():
+        
         start_stop_time = [subset.time.min().values.astype('M8[ms]').astype('O'), subset.time.max().values.astype('M8[ms]').astype('O')]
         now = datetime.datetime.now().replace(minute=0, second=0, microsecond=0)
 
