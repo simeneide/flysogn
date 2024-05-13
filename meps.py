@@ -33,6 +33,7 @@ def load_meps_for_location(file_path=None, altitude_min=0, altitude_max=3000):
     altitude_min=0
     altitude_max=3000
     """
+
     if file_path is None:
         file_path = find_latest_meps_file()
 
@@ -158,6 +159,27 @@ def compute_thermal_temp_difference(subset):
     thermal_temp_diff = (ground_parcel_temp - air_temp).clip(min=0)
     return thermal_temp_diff
 
+def wind_and_temp_colorscales(wind_max=20, tempdiff_max=8):
+    windcolors = mcolors.LinearSegmentedColormap.from_list("", ["grey", "green","darkgreen","yellow","orange","darkorange","red", "darkred", "violet","darkviolet"],)
+
+    # build colorscale for thermal temperature difference
+    wind_colors =    ["grey",   "blue",   "green",    "yellow",   "red",  "purple"]
+    wind_positions = [0,        0.5,          3,          7,         12,     20]  # transition points
+    wind_positions_norm = [i/wind_max for i in wind_positions]
+
+    # Create the colormap
+    windcolors = mcolors.LinearSegmentedColormap.from_list("", list(zip(wind_positions_norm, wind_colors)))
+
+
+    # build colorscale for thermal temperature difference
+    thermal_colors =        ['white',   'white',    'red',  'violet',   "darkviolet"]
+    thermal_positions =     [0,         0.2,        2.0,    4,          8]
+    thermal_positions_norm = [i/tempdiff_max for i in thermal_positions]
+
+    # Create the colormap
+    tempcolors = mcolors.LinearSegmentedColormap.from_list("", list(zip(thermal_positions_norm, thermal_colors)))
+    return windcolors, tempcolors
+
 @st.cache_data(ttl=60)
 def create_wind_map(_subset,  x_target, y_target, altitude_max=3000, date_start=None, date_end=None):
     """
@@ -167,26 +189,7 @@ def create_wind_map(_subset,  x_target, y_target, altitude_max=3000, date_start=
     """
     subset = _subset
 
-    def wind_and_temp_colorscales(wind_max=20, tempdiff_max=8):
-        windcolors = mcolors.LinearSegmentedColormap.from_list("", ["grey", "green","darkgreen","yellow","orange","darkorange","red", "darkred", "violet","darkviolet"],)
 
-        # build colorscale for thermal temperature difference
-        wind_colors =    ["grey",   "blue",   "green",    "yellow",   "red",  "purple"]
-        wind_positions = [0,        0.5,          3,          7,         12,     20]  # transition points
-        wind_positions_norm = [i/wind_max for i in wind_positions]
-
-        # Create the colormap
-        windcolors = mcolors.LinearSegmentedColormap.from_list("", list(zip(wind_positions_norm, wind_colors)))
-
-
-        # build colorscale for thermal temperature difference
-        thermal_colors =        ['white',   'white',    'red',  'violet',   "darkviolet"]
-        thermal_positions =     [0,         0.2,        2.0,    4,          8]
-        thermal_positions_norm = [i/tempdiff_max for i in thermal_positions]
-
-        # Create the colormap
-        tempcolors = mcolors.LinearSegmentedColormap.from_list("", list(zip(thermal_positions_norm, thermal_colors)))
-        return windcolors, tempcolors
 
     wind_min, wind_max = 0.3, 20
     tempdiff_min, tempdiff_max = 0, 8
@@ -318,6 +321,7 @@ def build_map(_subset, date=None, hour=None, x_target=None, y_target=None):
     latitude_values = subset.latitude.values
     longitude_values = subset.longitude.values
 
+    #plt.imshow(thermal_top_values)
     # Normalize the data to 0-1
     col_thermal_min, col_thermal_max = 0.2, 3000
     norm = Normalize(vmin=col_thermal_min, vmax=col_thermal_max)
@@ -333,12 +337,20 @@ def build_map(_subset, date=None, hour=None, x_target=None, y_target=None):
     # Get the bounds of the data
     bounds = [[latitude_values.min(), longitude_values.min()], [latitude_values.max(), longitude_values.max()]]
 
-    # Create a map centered at the mean of the latitude and longitude values
-    m = folium.Map(location=[latitude_values.mean(), longitude_values.mean()], zoom_start=10)
+
+    #%%
+    from pyproj import Transformer
+    bounds = [list(latlon_to_xy(*b)) for b in bounds]
 
     # Add the image overlay to the map
-    folium.raster_layers.ImageOverlay(img, bounds=bounds, opacity=0.7, mercator_project=True).add_to(m)
+    folium.raster_layers.ImageOverlay(img, bounds=bounds, opacity=0.4, mercator_project=True).add_to(m)
+    #%%
+    # Create a map centered at the mean of the latitude and longitude values
+    m = folium.Map(location=[latitude_values.mean(), longitude_values.mean()], zoom_start=9)
 
+    # Add the image overlay to the map
+    folium.raster_layers.ImageOverlay(img, bounds=bounds, opacity=0.4, mercator_project=True).add_to(m)
+    m
     # Create a color map legend
     colormap = linear.YlOrRd_09.scale(col_thermal_min, col_thermal_max)
     colormap.caption = 'Height'
@@ -347,6 +359,9 @@ def build_map(_subset, date=None, hour=None, x_target=None, y_target=None):
     # Add marker on point of estimates
     lon, lat = subset.sel(x=x_target, y=y_target, method="nearest").latitude.values, subset.sel(x=x_target, y=y_target, method="nearest").longitude.values
     folium.Marker([lon, lat], popup='Forecast Location').add_to(m)
+    #folium.plugins.Geocoder().add_to(m)
+    #folium.plugins.LocateControl().add_to(m)
+
     return m
 
 #%%
@@ -363,6 +378,8 @@ def latlon_to_xy(lat, lon):
     )
     # Transformer to project from ESPG:4368 (WGS:84) to our lambert_conformal_conic
     proj = pyproj.Proj.from_crs(4326, crs, always_xy=True)
+
+    proj_back = Transformer.from_crs(crs, 4326, always_xy=True)
     # Compute projected coordinates of lat/lon point
     X,Y = proj.transform(lon,lat)
     return X,Y
@@ -473,14 +490,14 @@ if __name__ == "__main__":
     x_target, y_target = latlon_to_xy(lat, lon)
     
     dataset_file_path = find_latest_meps_file()
-    local=False
+    local=True
     if local:
         subset = xr.open_dataset("subset.nc")
     else:
         subset = load_meps_for_location()
         subset.to_netcdf("subset.nc")
 
-    build_map(subset, date="2024-05-14", hour="15", x_target=x_target, y_target=y_target)
+    build_map(subset, date="2024-05-13", hour="16", x_target=x_target, y_target=y_target)
 
     wind_fig = create_wind_map(subset, altitude_max=3000,x_target=x_target, y_target=y_target)
     
