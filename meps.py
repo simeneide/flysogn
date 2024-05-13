@@ -63,6 +63,27 @@ def load_meps_for_location(file_path=None, altitude_min=0, altitude_max=3000):
     subset = xr.open_dataset(path, cache=True)
     subset.load()
 
+    #%% get geopotential
+    time_range_sfc = "[0:1:0]"
+    surf_params = {
+        "x": x_range,
+        "y": y_range,
+        "time": f"{time_range}",
+        "surface_geopotential": f"{time_range_sfc}[0:1:0]{y_range}{x_range}",
+        "air_temperature_0m": f"{time_range}[0:1:0]{y_range}{x_range}",
+    } 
+    file_path_surf = f"{file_path.replace('meps_det_ml','meps_det_sfc')}?{','.join(f'{k}{v}' for k, v in surf_params.items())}"
+
+    # Load surface parameters and merge into the main dataset
+    surf = xr.open_dataset(file_path_surf, cache=True)
+    # Convert the surface geopotential to elevation
+    elevation = (surf.surface_geopotential / 9.80665).squeeze()
+    #elevation.plot()
+    subset['elevation'] = elevation
+    air_temperature_0m = surf.air_temperature_0m.squeeze()
+    subset['air_temperature_0m'] = air_temperature_0m
+    # subset.elevation.plot()
+    #%%
     def hybrid_to_height(ds):
         """
         ds = subset
@@ -99,7 +120,8 @@ def load_meps_for_location(file_path=None, altitude_min=0, altitude_max=3000):
     subset = subset.assign(wind_speed=(('time', 'altitude','y','x'), wind_speed.data))
 
     thermal_temp_diff = compute_thermal_temp_difference(subset)
-    subset = subset.assign(thermal_temp_diff=(('time', 'altitude','y','x'), thermal_temp_diff.data))
+    subset['thermal_temp_diff'] = thermal_temp_diff
+    #subset = subset.assign(thermal_temp_diff=(('time', 'altitude','y','x'), thermal_temp_diff.data))
 
     # Find the indices where the thermal temperature difference is zero or negative
     indices = (thermal_temp_diff > 0).argmax(dim="altitude")
@@ -115,14 +137,20 @@ def load_meps_for_location(file_path=None, altitude_min=0, altitude_max=3000):
 #%%
 def compute_thermal_temp_difference(subset):
     lapse_rate = 0.0098
-    air_temp = (subset['air_temperature_ml']-273.3).ffill(dim='altitude')
-    # Plot airtemp on a map
+    ground_temp = subset.air_temperature_0m-273.3
+    air_temp = (subset['air_temperature_ml']-273.3)#.ffill(dim='altitude')
 
-    ground_temp = 3+ air_temp.where(air_temp.altitude == air_temp.altitude.min())
-    ground_temp_filled = ground_temp.bfill(dim='altitude')
-    temp_parcel = ground_temp_filled - lapse_rate * air_temp.altitude
-    #temp_parcel.plot()
-    thermal_temp_diff = (temp_parcel - air_temp).clip(min=0)
+    # dimensions
+    # 'air_temperature_ml'  altitude: 4 y: 3, x: 3
+    # 'elevation'                       y: 3  x: 3
+    # 'altitude'            altitude: 4
+
+    # broadcast ground temperature to all altitudes, but let it decrease by lapse rate
+    altitude_diff = subset.altitude - subset.elevation
+    altitude_diff = altitude_diff.where(altitude_diff >= 0, 0)
+    temp_decrease = lapse_rate * altitude_diff
+    ground_parcel_temp = ground_temp - temp_decrease
+    thermal_temp_diff = (ground_parcel_temp - air_temp).clip(min=0)
     return thermal_temp_diff
 
 @st.cache_data(ttl=60)
@@ -133,6 +161,7 @@ def create_wind_map(_subset,  x_target, y_target, altitude_max=3000, date_start=
     date_end = None
     """
     subset = _subset
+
     windcolors = mcolors.LinearSegmentedColormap.from_list("", ["grey", "green","darkgreen","yellow","orange","darkorange","red", "darkred", "violet","darkviolet"],)
 
     # build colorscale for thermal temperature difference
@@ -145,17 +174,21 @@ def create_wind_map(_subset,  x_target, y_target, altitude_max=3000, date_start=
     # Create the colormap
     tempcolors = mcolors.LinearSegmentedColormap.from_list("", list(zip(positions, colors)))
 
-    # Create a figure object
-    fig, ax = plt.subplots(figsize=(15, 7))
-    new_altitude = np.arange(subset.altitude.min(), altitude_max, altitude_max/20)
+    # Filter location
+    windplot_data = subset.sel(x=x_target, y=y_target, method="nearest")
+    
+    # Filter time periods and altitudes
     if date_start is None:
-        date_start = subset.time.min().values
+        date_start = datetime.datetime.fromtimestamp(subset.time.min().values.astype('int64') / 1e9)
     if date_end is None:
-        date_end = subset.time.max().values
+        date_end = datetime.datetime.fromtimestamp(subset.time.max().values.astype('int64') / 1e9)
     new_timestamps = pd.date_range(date_start, date_end, 20)
-    #subset
-    windplot_data = subset.sel(x=x_target, y=y_target, method="nearest").interp(altitude=new_altitude, time=new_timestamps)
+    
+    new_altitude = np.arange(windplot_data.elevation, altitude_max, altitude_max/20)
+    windplot_data = windplot_data.interp(altitude=new_altitude, time=new_timestamps)
 
+    # BUILD PLOT
+    fig, ax = plt.subplots(figsize=(15, 7))
     contourf = ax.contourf(windplot_data.time, windplot_data.altitude, windplot_data.thermal_temp_diff.T, cmap=tempcolors, alpha=0.5, vmin=0, vmax=4)
     fig.colorbar(contourf, ax=ax, label='Thermal Temperature Difference (°C)', pad=0.01, orientation='vertical')
     
@@ -168,6 +201,9 @@ def create_wind_map(_subset,  x_target, y_target, altitude_max=3000, date_start=
         pivot="middle",# headwidth=4, headlength=6,
         ax=ax  # Add this line to plot on the created axes 
     )
+    plt.ylim(bottom=0)
+    # fill bottom with brown color
+    ax.fill_between(windplot_data.time, 0, windplot_data.elevation, color="brown", alpha=0.5)
     quiverplot.colorbar.set_label("Wind Speed  [m/s]")
     quiverplot.colorbar.pad = 0.01
 
@@ -182,8 +218,6 @@ def create_wind_map(_subset,  x_target, y_target, altitude_max=3000, date_start=
             ax.text(t, alt-50, f"{windplot_data.wind_speed[x,y]:.1f}", size=6, color=color)
     plt.title(f"Wind and thermals in Sogndal {date_start.strftime('%Y-%m-%d')}")
     plt.yscale("linear")
-
-    # Return the figure object
     return fig
 
 #%%
@@ -230,7 +264,7 @@ def create_sounding(_subset, date, hour, x_target, y_target, altitude_max=3000):
 
     # Plot the temperature of the rising air parcel
     filter = T_parcel>T
-    ax.plot(T_parcel[filter], ds_time.altitude[filter], 'g-', label='Rising air parcel',color="green")
+    ax.plot(T_parcel[filter], ds_time.altitude[filter], label='Rising air parcel',color="green")
 
     add_dry_adiabatic_lines(ds_time)
 
@@ -379,6 +413,7 @@ def show_forecast():
                 x_target=x_target,
                 y_target=y_target)
     st.pyplot(wind_fig)
+    plt.close()
     
 
     with st.expander("More settings", expanded=False):
@@ -402,7 +437,7 @@ def show_forecast():
                 y_target=y_target)
         st.pyplot(sounding_fig)
 
-    st.markdown("Wind and sounding data from MEPS model (main model used by met.no). Thermal (green) is assuming ground temperature is 3 degrees higher than surrounding air. The location for both wind and sounding plot is Sogndal (61.22, 7.09). Ive probably made many errors in this process.")
+    st.markdown("Wind and sounding data from MEPS model (main model used by met.no), including the estimated ground temperature. Ive probably made many errors in this process.")
 
     # Download new forecast if available
     st.session_state.file_path = find_latest_meps_file()
@@ -422,9 +457,10 @@ if __name__ == "__main__":
         subset = load_meps_for_location()
         subset.to_netcdf("subset.nc")
 
-    build_map(subset, date="2024-05-13", hour="15")
+    build_map(subset, date="2024-05-14", hour="15", x_target=x_target, y_target=y_target)
 
     wind_fig = create_wind_map(subset, altitude_max=3000,x_target=x_target, y_target=y_target)
+    
 
     # Plot thermal top on a map for a specific time
     #subset.sel(time=subset.time.min()).thermal_top.plot()
