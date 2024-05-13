@@ -36,8 +36,8 @@ def load_meps_for_location(file_path=None, altitude_min=0, altitude_max=3000):
     if file_path is None:
         file_path = find_latest_meps_file()
 
-    x_range= "[200:1:300]"
-    y_range= "[400:1:500]"
+    x_range= "[220:1:300]"
+    y_range= "[420:1:500]"
     time_range = "[0:1:66]"
     hybrid_range = "[25:1:64]"
     height_range = "[0:1:0]"
