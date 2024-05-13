@@ -8,10 +8,8 @@ import matplotlib.colors as mcolors
 import streamlit as st
 import datetime
 import matplotlib.dates as mdates
-#
-from matplotlib.colors import Normalize
+from scipy.interpolate import griddata
 import folium
-from branca.colormap import linear
 import branca.colormap as cm
 
 @st.cache_data(ttl=60)
@@ -135,7 +133,6 @@ def load_meps_for_location(file_path=None, altitude_min=0, altitude_max=3000):
     # Get the altitudes corresponding to these indices
     thermal_top = subset.altitude[indices]
     subset = subset.assign(thermal_top=(('time', 'y', 'x'), thermal_top.data))
-
     subset = subset.set_coords(["latitude", "longitude"])
 
     return subset
@@ -319,7 +316,6 @@ def build_map(_subset, date=None, hour=None, x_target=None, y_target=None):
     thermal_top_values = subset.thermal_top.sel(time=f"{date}T{hour}").values.flatten()
     #thermal_top_values = subset.elevation.mean("altitude").values.flatten()
     # Convert the irregular grid data into a regular grid
-    from scipy.interpolate import griddata
     step_lon, step_lat = subset.longitude.diff("x").quantile(0.1).values, subset.latitude.diff("y").quantile(0.1).values
     grid_x, grid_y = np.mgrid[min(latitude_values):max(latitude_values):step_lat, min(longitude_values):max(longitude_values):step_lon]
     grid_z = griddata((latitude_values, longitude_values), thermal_top_values, (grid_x, grid_y), method='linear')
@@ -334,7 +330,7 @@ def build_map(_subset, date=None, hour=None, x_target=None, y_target=None):
 
     bounds = [[min(latitude_values), min(longitude_values)], [max(latitude_values), max(longitude_values)]]
     img_overlay = folium.raster_layers.ImageOverlay(image=grid_z, bounds=bounds, colormap=heightcolor, opacity=0.6, mercator_project=True, origin="lower",pixelated=False)
-    #%%
+
     # Create a map centered at the mean of the latitude and longitude values
     m = folium.Map(location=[latitude_values.mean(), longitude_values.mean()], zoom_start=9)
 
@@ -462,6 +458,7 @@ def show_forecast():
                 x_target=x_target,
                 y_target=y_target)
         st.pyplot(sounding_fig)
+        plt.close()
 
     st.markdown("Wind and sounding data from MEPS model (main model used by met.no), including the estimated ground temperature. Ive probably made many errors in this process.")
 
