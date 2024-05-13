@@ -337,11 +337,7 @@ def build_map(_subset, date=None, hour=None, x_target=None, y_target=None):
     # Get the bounds of the data
     bounds = [[latitude_values.min(), longitude_values.min()], [latitude_values.max(), longitude_values.max()]]
 
-
     #%%
-    from pyproj import Transformer
-    bounds = [list(latlon_to_xy(*b)) for b in bounds]
-
     # Add the image overlay to the map
     folium.raster_layers.ImageOverlay(img, bounds=bounds, opacity=0.4, mercator_project=True).add_to(m)
     #%%
