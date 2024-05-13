@@ -162,18 +162,30 @@ def create_wind_map(_subset,  x_target, y_target, altitude_max=3000, date_start=
     """
     subset = _subset
 
-    windcolors = mcolors.LinearSegmentedColormap.from_list("", ["grey", "green","darkgreen","yellow","orange","darkorange","red", "darkred", "violet","darkviolet"],)
+    def wind_and_temp_colorscales(wind_max=20, tempdiff_max=8):
+        windcolors = mcolors.LinearSegmentedColormap.from_list("", ["grey", "green","darkgreen","yellow","orange","darkorange","red", "darkred", "violet","darkviolet"],)
 
-    # build colorscale for thermal temperature difference
-    colors = [(1, 1, 1),  # white
-              (1, 1, 1),  # white
-            (1, 0, 0),  # red
-            (0.58, 0, 0.83)]  # violet
-    positions = [0, 0.05,0.5, 1]  # transition points
+        # build colorscale for thermal temperature difference
+        wind_colors =    ["grey",   "blue",   "green",    "yellow",   "red",  "purple"]
+        wind_positions = [0,        0.5,          3,          7,         12,     20]  # transition points
+        wind_positions_norm = [i/wind_max for i in wind_positions]
 
-    # Create the colormap
-    tempcolors = mcolors.LinearSegmentedColormap.from_list("", list(zip(positions, colors)))
+        # Create the colormap
+        windcolors = mcolors.LinearSegmentedColormap.from_list("", list(zip(wind_positions_norm, wind_colors)))
 
+
+        # build colorscale for thermal temperature difference
+        thermal_colors =        ['white',   'white',    'red',  'violet',   "darkviolet"]
+        thermal_positions =     [0,         0.2,        2.0,    4,          8]
+        thermal_positions_norm = [i/tempdiff_max for i in thermal_positions]
+
+        # Create the colormap
+        tempcolors = mcolors.LinearSegmentedColormap.from_list("", list(zip(thermal_positions_norm, thermal_colors)))
+        return windcolors, tempcolors
+
+    wind_min, wind_max = 0.3, 20
+    tempdiff_min, tempdiff_max = 0, 8
+    windcolors, tempcolors = wind_and_temp_colorscales(wind_max, tempdiff_max)
     # Filter location
     windplot_data = subset.sel(x=x_target, y=y_target, method="nearest")
     
@@ -189,7 +201,7 @@ def create_wind_map(_subset,  x_target, y_target, altitude_max=3000, date_start=
 
     # BUILD PLOT
     fig, ax = plt.subplots(figsize=(15, 7))
-    contourf = ax.contourf(windplot_data.time, windplot_data.altitude, windplot_data.thermal_temp_diff.T, cmap=tempcolors, alpha=0.5, vmin=0, vmax=4)
+    contourf = ax.contourf(windplot_data.time, windplot_data.altitude, windplot_data.thermal_temp_diff.T, cmap=tempcolors, alpha=0.5, vmin=0, vmax=8)
     fig.colorbar(contourf, ax=ax, label='Thermal Temperature Difference (°C)', pad=0.01, orientation='vertical')
     
     # Wind quiver plot
@@ -197,25 +209,28 @@ def create_wind_map(_subset,  x_target, y_target, altitude_max=3000, date_start=
         x='time', y='altitude', u='x_wind_ml', v='y_wind_ml', 
         hue="wind_speed", 
         cmap = windcolors,
-        vmin=2, vmax=20,
+        vmin=wind_min, vmax=wind_max,
+        alpha=0.5,
         pivot="middle",# headwidth=4, headlength=6,
         ax=ax  # Add this line to plot on the created axes 
     )
-    plt.ylim(bottom=0)
-    # fill bottom with brown color
-    ax.fill_between(windplot_data.time, 0, windplot_data.elevation, color="brown", alpha=0.5)
     quiverplot.colorbar.set_label("Wind Speed  [m/s]")
     quiverplot.colorbar.pad = 0.01
 
+    # fill bottom with brown color
+    plt.ylim(bottom=0)
+    ax.fill_between(windplot_data.time, 0, windplot_data.elevation, color="brown", alpha=0.5)
+
+
     ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
     # normalize wind speed for color mapping
-    norm = plt.Normalize(0, 20)
+    norm = plt.Normalize(wind_min, wind_max)
 
     # add numerical labels to the plot
     for x, t in enumerate(windplot_data.time.values):
         for y, alt in enumerate(windplot_data.altitude.values):
             color = windcolors(norm(windplot_data.wind_speed[x,y]))
-            ax.text(t, alt-50, f"{windplot_data.wind_speed[x,y]:.1f}", size=6, color=color)
+            ax.text(t+5, alt+20, f"{windplot_data.wind_speed[x,y]:.1f}", size=6, color=color)
     plt.title(f"Wind and thermals in Sogndal {date_start.strftime('%Y-%m-%d')}")
     plt.yscale("linear")
     return fig
