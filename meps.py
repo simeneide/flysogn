@@ -177,7 +177,7 @@ def wind_and_temp_colorscales(wind_max=20, tempdiff_max=8):
     return windcolors, tempcolors
 
 @st.cache_data(ttl=60)
-def create_wind_map(_subset,  x_target, y_target, altitude_max=3000, date_start=None, date_end=None):
+def create_wind_map(_subset,  x_target, y_target, altitude_max=4000, date_start=None, date_end=None):
     """
     altitude_max = 3000
     date_start = None
@@ -235,7 +235,7 @@ def create_wind_map(_subset,  x_target, y_target, altitude_max=3000, date_start=
         for y, alt in enumerate(windplot_data.altitude.values):
             color = windcolors(norm(windplot_data.wind_speed[x,y]))
             ax.text(t+5, alt+20, f"{windplot_data.wind_speed[x,y]:.1f}", size=6, color=color)
-    plt.title(f"Wind and thermals in Sogndal {date_start.strftime('%Y-%m-%d')} (UTC)")
+    plt.title(f"Wind and thermals in point starting at {date_start.strftime('%Y-%m-%d')} (UTC)")
     plt.yscale("linear")
     return fig
 
@@ -298,10 +298,8 @@ def create_sounding(_subset, date, hour, x_target, y_target, altitude_max=3000):
     # Return the figure object
     return fig
 
-
-
 @st.cache_data(ttl=7200)
-def build_map(_subset, date=None, hour=None, x_target=None, y_target=None):
+def build_map_overlays(_subset, date=None, hour=None):
     """
     date = "2024-05-13"
     hour = "15"
@@ -329,23 +327,9 @@ def build_map(_subset, date=None, hour=None, x_target=None, y_target=None):
 
 
     bounds = [[min(latitude_values), min(longitude_values)], [max(latitude_values), max(longitude_values)]]
-    img_overlay = folium.raster_layers.ImageOverlay(image=grid_z, bounds=bounds, colormap=heightcolor, opacity=0.6, mercator_project=True, origin="lower",pixelated=False)
+    img_overlay = folium.raster_layers.ImageOverlay(image=grid_z, bounds=bounds, colormap=heightcolor, opacity=0.4, mercator_project=True, origin="lower",pixelated=False)
 
-    # Create a map centered at the mean of the latitude and longitude values
-    m = folium.Map(location=[latitude_values.mean(), longitude_values.mean()], zoom_start=9)
-
-    # Add the image overlay to the map
-    img_overlay.add_to(m)
-    m.add_child(heightcolor,name="height")
-    m
-
-    # Add marker on point of estimates
-    lon, lat = subset.sel(x=x_target, y=y_target, method="nearest").latitude.values, subset.sel(x=x_target, y=y_target, method="nearest").longitude.values
-    folium.Marker([lon, lat], popup='Forecast Location').add_to(m)
-    #folium.plugins.Geocoder().add_to(m)
-    #folium.plugins.LocateControl().add_to(m)
-
-    return m
+    return img_overlay, heightcolor
 
 #%%
 import pyproj
@@ -368,17 +352,20 @@ def latlon_to_xy(lat, lon):
 # %%
 def show_forecast():
 
-    col1, col2 = st.columns([1, 1])
-    with col1:
-        latitude = st.number_input("latitude", value=61.22908)
-    with col2:
-        longitude = st.number_input("longitude", value=7.09674)
-    x_target, y_target = latlon_to_xy(latitude, longitude)
-    with st.spinner('Fetching data...'):
+    with st.spinner('Fetching data...'):        
+        @st.cache_data
+        def load_data(filepath):
+            local=False
+            if local:
+                subset = xr.open_dataset("subset.nc")
+            else:
+                subset = load_meps_for_location(filepath)
+                subset.to_netcdf("subset.nc")
+            return subset
+        
         if "file_path" not in st.session_state:
             st.session_state.file_path = find_latest_meps_file()
-        
-        subset = load_meps_for_location(st.session_state.file_path)
+        subset = load_data(st.session_state.file_path)
 
     def date_controls():
         
@@ -393,6 +380,10 @@ def show_forecast():
             st.session_state.forecast_length = 1
         if "altitude_max" not in st.session_state:
             st.session_state.altitude_max = 3000
+        if "target_latitude" not in st.session_state:
+            st.session_state.target_latitude = 61.22908
+        if "target_longitude" not in st.session_state:
+            st.session_state.target_longitude = 7.09674
         col1, col_date, col_time, col3 = st.columns([0.2,0.6,0.2,0.2])
 
         with col1:
@@ -423,10 +414,24 @@ def show_forecast():
 
     ## MAP
     with st.expander("Map", expanded=True):
-        m = build_map(subset, date=st.session_state.forecast_date, hour=st.session_state.forecast_time, x_target=x_target, y_target=y_target)
-        from streamlit_folium import folium_static
-        folium_static(m)
-
+        from streamlit_folium import st_folium
+        st.cache_data(ttl=30)
+        def build_map(date, hour):
+            m = folium.Map(location=[61.22908, 7.09674], zoom_start=9, tiles="openstreetmap")
+            img_overlay, heightcolor = build_map_overlays(subset, date=date, hour=hour)
+            
+            img_overlay.add_to(m)
+            m.add_child(heightcolor,name="Thermal Height (m)")
+            m.add_child(folium.LatLngPopup())
+            return m
+        m = build_map(date = st.session_state.forecast_date,hour=st.session_state.forecast_time)
+        map=st_folium(m)
+        def get_pos(lat,lng):
+            return lat,lng
+        if map['last_clicked'] is not None:
+            st.session_state.target_latitude, st.session_state.target_longitude = get_pos(map['last_clicked']['lat'],map['last_clicked']['lng'])
+    
+    x_target, y_target = latlon_to_xy(st.session_state.target_latitude, st.session_state.target_longitude)
     wind_fig = create_wind_map(
                 subset,
                 date_start=date_start, 
@@ -464,30 +469,35 @@ def show_forecast():
 
     # Download new forecast if available
     st.session_state.file_path = find_latest_meps_file()
-    subset = load_meps_for_location(st.session_state.file_path)
+    subset = load_data(st.session_state.file_path)
 
 
 if __name__ == "__main__":
-    lat = 61.22908
-    lon = 7.09674
-    x_target, y_target = latlon_to_xy(lat, lon)
-    
-    dataset_file_path = find_latest_meps_file()
-    local=True
-    if local:
-        subset = xr.open_dataset("subset.nc")
+    run_streamlit = True
+    if run_streamlit:
+        st.set_page_config(page_title="PGWeather",page_icon="🪂", layout="wide")
+        show_forecast()
     else:
-        subset = load_meps_for_location()
-        subset.to_netcdf("subset.nc")
+        lat = 61.22908
+        lon = 7.09674
+        x_target, y_target = latlon_to_xy(lat, lon)
+        
+        dataset_file_path = find_latest_meps_file()
+        local=True
+        if local:
+            subset = xr.open_dataset("subset.nc")
+        else:
+            subset = load_meps_for_location()
+            subset.to_netcdf("subset.nc")
 
-    build_map(subset, date="2024-05-14", hour="16", x_target=x_target, y_target=y_target)
+        build_map_overlays(subset, date="2024-05-14", hour="16")
 
-    wind_fig = create_wind_map(subset, altitude_max=3000,x_target=x_target, y_target=y_target)
-    
+        wind_fig = create_wind_map(subset, altitude_max=3000,x_target=x_target, y_target=y_target)
+        
 
-    # Plot thermal top on a map for a specific time
-    #subset.sel(time=subset.time.min()).thermal_top.plot()
-    sounding_fig = create_sounding(subset, date="2024-05-12", hour=15, x_target=x_target, y_target=y_target)
+        # Plot thermal top on a map for a specific time
+        #subset.sel(time=subset.time.min()).thermal_top.plot()
+        sounding_fig = create_sounding(subset, date="2024-05-12", hour=15, x_target=x_target, y_target=y_target)
 
     
 
