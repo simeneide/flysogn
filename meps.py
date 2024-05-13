@@ -196,7 +196,7 @@ def create_wind_map(_subset,  x_target, y_target, altitude_max=3000, date_start=
         date_end = datetime.datetime.fromtimestamp(subset.time.max().values.astype('int64') / 1e9)
     new_timestamps = pd.date_range(date_start, date_end, 20)
     
-    new_altitude = np.arange(windplot_data.elevation, altitude_max, altitude_max/20)
+    new_altitude = np.arange(windplot_data.elevation.mean(), altitude_max, altitude_max/20)
     windplot_data = windplot_data.interp(altitude=new_altitude, time=new_timestamps)
 
     # BUILD PLOT
@@ -219,7 +219,7 @@ def create_wind_map(_subset,  x_target, y_target, altitude_max=3000, date_start=
 
     # fill bottom with brown color
     plt.ylim(bottom=0)
-    ax.fill_between(windplot_data.time, 0, windplot_data.elevation, color="brown", alpha=0.5)
+    ax.fill_between(windplot_data.time, 0, windplot_data.elevation.mean(), color="brown", alpha=0.5)
 
 
     ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
@@ -465,7 +465,7 @@ if __name__ == "__main__":
     x_target, y_target = latlon_to_xy(lat, lon)
     
     dataset_file_path = find_latest_meps_file()
-    local=True
+    local=False
     if local:
         subset = xr.open_dataset("subset.nc")
     else:
