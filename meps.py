@@ -12,6 +12,7 @@ import matplotlib.dates as mdates
 from matplotlib.colors import Normalize
 import folium
 from branca.colormap import linear
+import branca.colormap as cm
 
 @st.cache_data(ttl=60)
 def find_latest_meps_file():
@@ -160,8 +161,6 @@ def compute_thermal_temp_difference(subset):
     return thermal_temp_diff
 
 def wind_and_temp_colorscales(wind_max=20, tempdiff_max=8):
-    windcolors = mcolors.LinearSegmentedColormap.from_list("", ["grey", "green","darkgreen","yellow","orange","darkorange","red", "darkred", "violet","darkviolet"],)
-
     # build colorscale for thermal temperature difference
     wind_colors =    ["grey",   "blue",   "green",    "yellow",   "red",  "purple"]
     wind_positions = [0,        0.5,          3,          7,         12,     20]  # transition points
@@ -307,50 +306,42 @@ def create_sounding(_subset, date, hour, x_target, y_target, altitude_max=3000):
 @st.cache_data(ttl=7200)
 def build_map(_subset, date=None, hour=None, x_target=None, y_target=None):
     """
-    date = "2024-05-14"
+    date = "2024-05-13"
     hour = "15"
     x_target=None
     y_target=None
     """
     subset = _subset
     
-    # Get the thermal_top data for a specific time
-    thermal_top_values = subset.thermal_top.sel(time=f"{date}T{hour}").values
-
     # Get the latitude and longitude values from the dataset
-    latitude_values = subset.latitude.values
-    longitude_values = subset.longitude.values
+    latitude_values = subset.latitude.values.flatten()
+    longitude_values = subset.longitude.values.flatten()
+    thermal_top_values = subset.thermal_top.sel(time=f"{date}T{hour}").values.flatten()
+    #thermal_top_values = subset.elevation.mean("altitude").values.flatten()
+    # Convert the irregular grid data into a regular grid
+    from scipy.interpolate import griddata
+    step_lon, step_lat = subset.longitude.diff("x").quantile(0.1).values, subset.latitude.diff("y").quantile(0.1).values
+    grid_x, grid_y = np.mgrid[min(latitude_values):max(latitude_values):step_lat, min(longitude_values):max(longitude_values):step_lon]
+    grid_z = griddata((latitude_values, longitude_values), thermal_top_values, (grid_x, grid_y), method='linear')
+    grid_z = np.nan_to_num(grid_z, copy=False, nan=0)
+    # Normalize the grid data to a range suitable for image display
+    heightcolor = cm.LinearColormap(
+        colors = ['white',  'white',     'green',   'yellow', 'orange','red', 'darkblue'], 
+        index  = [0,        500,        1000,       1500,   2000,     2500,       3000], 
+        vmin=0, vmax=3000, 
+        caption='Thermal Height (m)')
 
-    #plt.imshow(thermal_top_values)
-    # Normalize the data to 0-1
-    col_thermal_min, col_thermal_max = 0.2, 3000
-    norm = Normalize(vmin=col_thermal_min, vmax=col_thermal_max)
-    normalized_data = norm(thermal_top_values)
 
-    # Create a color map
-    cmap = plt.get_cmap('Reds')
-    colored_data = cmap(normalized_data)
-
-    # Create an image from the colored data
-    img = np.uint8(colored_data * 255)
-
-    # Get the bounds of the data
-    bounds = [[latitude_values.min(), longitude_values.min()], [latitude_values.max(), longitude_values.max()]]
-
-    #%%
-    # Add the image overlay to the map
-    folium.raster_layers.ImageOverlay(img, bounds=bounds, opacity=0.4, mercator_project=True).add_to(m)
+    bounds = [[min(latitude_values), min(longitude_values)], [max(latitude_values), max(longitude_values)]]
+    img_overlay = folium.raster_layers.ImageOverlay(image=grid_z, bounds=bounds, colormap=heightcolor, opacity=0.6, mercator_project=True, origin="lower",pixelated=False)
     #%%
     # Create a map centered at the mean of the latitude and longitude values
     m = folium.Map(location=[latitude_values.mean(), longitude_values.mean()], zoom_start=9)
 
     # Add the image overlay to the map
-    folium.raster_layers.ImageOverlay(img, bounds=bounds, opacity=0.4, mercator_project=True).add_to(m)
+    img_overlay.add_to(m)
+    m.add_child(heightcolor,name="height")
     m
-    # Create a color map legend
-    colormap = linear.YlOrRd_09.scale(col_thermal_min, col_thermal_max)
-    colormap.caption = 'Height'
-    m.add_child(colormap)
 
     # Add marker on point of estimates
     lon, lat = subset.sel(x=x_target, y=y_target, method="nearest").latitude.values, subset.sel(x=x_target, y=y_target, method="nearest").longitude.values
@@ -375,7 +366,6 @@ def latlon_to_xy(lat, lon):
     # Transformer to project from ESPG:4368 (WGS:84) to our lambert_conformal_conic
     proj = pyproj.Proj.from_crs(4326, crs, always_xy=True)
 
-    proj_back = Transformer.from_crs(crs, 4326, always_xy=True)
     # Compute projected coordinates of lat/lon point
     X,Y = proj.transform(lon,lat)
     return X,Y
@@ -493,7 +483,7 @@ if __name__ == "__main__":
         subset = load_meps_for_location()
         subset.to_netcdf("subset.nc")
 
-    build_map(subset, date="2024-05-13", hour="16", x_target=x_target, y_target=y_target)
+    build_map(subset, date="2024-05-14", hour="16", x_target=x_target, y_target=y_target)
 
     wind_fig = create_wind_map(subset, altitude_max=3000,x_target=x_target, y_target=y_target)
     
