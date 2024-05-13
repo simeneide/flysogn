@@ -119,11 +119,16 @@ def load_meps_for_location(file_path=None, altitude_min=0, altitude_max=3000):
     wind_speed = np.sqrt(subset['x_wind_ml']**2 + subset['y_wind_ml']**2)
     subset = subset.assign(wind_speed=(('time', 'altitude','y','x'), wind_speed.data))
 
-    thermal_temp_diff = compute_thermal_temp_difference(subset)
-    subset['thermal_temp_diff'] = thermal_temp_diff
+    
+    subset['thermal_temp_diff'] = compute_thermal_temp_difference(subset)
     #subset = subset.assign(thermal_temp_diff=(('time', 'altitude','y','x'), thermal_temp_diff.data))
 
     # Find the indices where the thermal temperature difference is zero or negative
+    # Create tiny value at ground level to avoid finding the ground as the thermal top
+    thermal_temp_diff = subset['thermal_temp_diff'] 
+    thermal_temp_diff = thermal_temp_diff.where(
+        (thermal_temp_diff.sum("altitude")>0)|(subset['altitude']!=subset.altitude.min()), 
+        thermal_temp_diff + 1e-6)
     indices = (thermal_temp_diff > 0).argmax(dim="altitude")
     # Get the altitudes corresponding to these indices
     thermal_top = subset.altitude[indices]
@@ -231,7 +236,7 @@ def create_wind_map(_subset,  x_target, y_target, altitude_max=3000, date_start=
         for y, alt in enumerate(windplot_data.altitude.values):
             color = windcolors(norm(windplot_data.wind_speed[x,y]))
             ax.text(t+5, alt+20, f"{windplot_data.wind_speed[x,y]:.1f}", size=6, color=color)
-    plt.title(f"Wind and thermals in Sogndal {date_start.strftime('%Y-%m-%d')}")
+    plt.title(f"Wind and thermals in Sogndal {date_start.strftime('%Y-%m-%d')} (UTC)")
     plt.yscale("linear")
     return fig
 
@@ -299,10 +304,13 @@ def create_sounding(_subset, date, hour, x_target, y_target, altitude_max=3000):
 @st.cache_data(ttl=7200)
 def build_map(_subset, date=None, hour=None, x_target=None, y_target=None):
     """
-    date = "2024-05-12"
+    date = "2024-05-14"
     hour = "15"
+    x_target=None
+    y_target=None
     """
     subset = _subset
+    
     # Get the thermal_top data for a specific time
     thermal_top_values = subset.thermal_top.sel(time=f"{date}T{hour}").values
 
