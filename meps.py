@@ -38,8 +38,8 @@ def load_meps_for_location(file_path=None, altitude_min=0, altitude_max=3000):
 
     x_range= "[220:1:300]"
     y_range= "[420:1:500]"
-    time_range = "[0:1:66]"
-    hybrid_range = "[25:1:64]"
+    time_range = "[0:2:66]"
+    hybrid_range = "[20:1:64]"
     height_range = "[0:1:0]"
 
     params = {
@@ -114,7 +114,7 @@ def load_meps_for_location(file_path=None, altitude_min=0, altitude_max=3000):
     subset = subset.swap_dims({'hybrid': 'altitude'})
 
     # filter subset on altitude ranges
-    subset = subset.where((subset.altitude >= altitude_min) & (subset.altitude <= altitude_max), drop=True).squeeze()
+    subset = subset.squeeze()
 
     wind_speed = np.sqrt(subset['x_wind_ml']**2 + subset['y_wind_ml']**2)
     subset = subset.assign(wind_speed=(('time', 'altitude','y','x'), wind_speed.data))
@@ -327,7 +327,7 @@ def build_map_overlays(_subset, date=None, hour=None):
 
 
     bounds = [[min(latitude_values), min(longitude_values)], [max(latitude_values), max(longitude_values)]]
-    img_overlay = folium.raster_layers.ImageOverlay(image=grid_z, bounds=bounds, colormap=heightcolor, opacity=0.4, mercator_project=True, origin="lower",pixelated=False)
+    img_overlay = folium.raster_layers.ImageOverlay(image=grid_z, bounds=bounds, colormap=heightcolor, opacity=0.6, mercator_project=True, origin="lower",pixelated=False)
 
     return img_overlay, heightcolor
 
