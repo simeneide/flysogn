@@ -60,8 +60,8 @@ def load_meps_for_location(file_path=None, altitude_min=0, altitude_max=3000):
 
     path = f"{file_path}?{','.join(f'{k}{v}' for k, v in params.items())}"
 
-    subset = xr.open_dataset(path, cache=True)
-    subset.load()
+    subset = xr.open_dataset(path) # , cache=True
+    #subset.load()
 
     #%% get geopotential
     time_range_sfc = "[0:1:0]"
