@@ -3,6 +3,7 @@ from siphon.catalog import TDSCatalog
 import numpy as np
 import datetime
 from google.cloud import storage
+import os
 
 #%%
 def find_latest_meps_file():
@@ -141,7 +142,12 @@ def process_meps_file(file_path=None):
 
 
 ### GCP Functions
-import os
+def create_dir_if_not_exists(file_path):
+    # Get the directory name
+    dir_name = os.path.dirname(file_path)
+    # Create the directory if it doesn't exist
+    os.makedirs(dir_name, exist_ok=True)
+
 class GCPStorage:
     def __init__(self):
         self.storage_client = storage.Client()
@@ -153,7 +159,8 @@ class GCPStorage:
         subset = process_meps_file(latest_meps_file)
 
         # save subset to disk
-        local_file_path = f"data/meps_{timestamp}.nc"
+        local_file_path = f"model_files/meps_{timestamp}.nc"
+        create_dir_if_not_exists(local_file_path)
         subset.to_netcdf(local_file_path)
 
 
@@ -176,10 +183,7 @@ class GCPStorage:
         # Get the local file path
         local_file_path = f"model_files/{latest_blob.name.split('/')[-1]}"
 
-        # Get the directory name
-        dir_name = os.path.dirname(local_file_path)
-        # Create the directory if it doesn't exist
-        os.makedirs(dir_name, exist_ok=True)
+        create_dir_if_not_exists(local_file_path)
 
         # Check if the file already exists locally
         if os.path.exists(local_file_path):
