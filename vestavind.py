@@ -246,11 +246,24 @@ def show_forecast():
         col1, col_date, col_time, col3 = st.columns([0.2,0.6,0.2,0.2])
 
         with col1:
-            if st.button("⏮️", use_container_width=True):
+            if st.button("⏮️", use_container_width=True, disabled=(st.session_state.forecast_date == start_stop_time[0].date())):
                 st.session_state.forecast_date -= datetime.timedelta(days=1)
+                # if forecast date is the first date and time is before the first time, reset time to the first time
+
         with col3:
             if st.button("⏭️", use_container_width=True, disabled=(st.session_state.forecast_date == start_stop_time[1].date())):
                 st.session_state.forecast_date += datetime.timedelta(days=1)
+                
+
+        with col_time:
+            st.session_state.forecast_time = st.time_input("Start time", value=st.session_state.forecast_time, step=3600,disabled=False,label_visibility="collapsed")
+            
+            # Check that time is within model forecast range
+            if datetime.datetime.combine(st.session_state.forecast_date, st.session_state.forecast_time) > start_stop_time[1]:
+                st.session_state.forecast_time = start_stop_time[1].time()
+            elif datetime.datetime.combine(st.session_state.forecast_date, st.session_state.forecast_time) < start_stop_time[0]:
+                st.session_state.forecast_time = start_stop_time[0].time()
+                
         with col_date:
             st.session_state.forecast_date = st.date_input(
                 "Start date", 
@@ -260,8 +273,7 @@ def show_forecast():
                 label_visibility="collapsed",
                 disabled=True
                 )
-        with col_time:
-            st.session_state.forecast_time = st.time_input("Start time", value=st.session_state.forecast_time, step=3600,disabled=False,label_visibility="collapsed")
+
 
     date_controls()
     time_start = datetime.time(0, 0)
