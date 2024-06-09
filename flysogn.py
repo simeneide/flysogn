@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 from streamlit_folium import folium_static
 from matplotlib.colors import to_hex, LinearSegmentedColormap
 from windrose import WindroseAxes
-import meps
+import vestavind
 # Set correct timezone
 import os, time
 os.environ['TZ'] = 'CET'
@@ -273,7 +273,7 @@ if __name__ == "__main__":
     with tab_holfuy:
         show_holfuy_widgets()
     with tab_forecast:
-        meps.show_forecast()
+        vestavind.show_forecast()
 
     st.title("Flyinfo Sogn")
     st.text("Information gathered from various sources. Hobby project because why not.")

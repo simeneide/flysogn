@@ -17,3 +17,4 @@ siphon
 netcdf4
 scipy
 bottleneck
+google-cloud-storage

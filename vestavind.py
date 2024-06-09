@@ -11,151 +11,7 @@ import matplotlib.dates as mdates
 from scipy.interpolate import griddata
 import folium
 import branca.colormap as cm
-
-@st.cache_data(ttl=60)
-def find_latest_meps_file():
-    # The MEPS dataset: https://github.com/metno/NWPdocs/wiki/MEPS-dataset
-    today = datetime.datetime.today()
-    catalog_url = f"https://thredds.met.no/thredds/catalog/meps25epsarchive/{today.year}/{today.month:02d}/{today.day:02d}/catalog.xml"
-    file_url_base = f"https://thredds.met.no/thredds/dodsC/meps25epsarchive/{today.year}/{today.month:02d}/{today.day:02d}"
-    # Get the datasets from the catalog
-    catalog = TDSCatalog(catalog_url)
-    datasets = [s for s in catalog.datasets if "meps_det_ml" in s]
-    file_path = f"{file_url_base}/{sorted(datasets)[-1]}"
-    return file_path
-
-
-@st.cache_data()
-def load_meps_for_location(file_path=None, altitude_min=0, altitude_max=3000):
-    """
-    file_path=None
-    altitude_min=0
-    altitude_max=3000
-    """
-
-    if file_path is None:
-        file_path = find_latest_meps_file()
-
-    x_range= "[220:1:300]"
-    y_range= "[420:1:500]"
-    time_range = "[0:2:66]"
-    hybrid_range = "[20:1:64]"
-    height_range = "[0:1:0]"
-
-    params = {
-        "x": x_range,
-        "y": y_range,
-        "time": time_range,
-        "hybrid": hybrid_range,
-        "height": height_range,
-        "longitude": f"{y_range}{x_range}",
-        "latitude": f"{y_range}{x_range}",
-        "air_temperature_ml": f"{time_range}{hybrid_range}{y_range}{x_range}",
-        "ap" : f"{hybrid_range}",
-        "b" : f"{hybrid_range}",
-        "surface_air_pressure": f"{time_range}{height_range}{y_range}{x_range}",
-        "x_wind_ml": f"{time_range}{hybrid_range}{y_range}{x_range}",
-        "y_wind_ml": f"{time_range}{hybrid_range}{y_range}{x_range}",
-    }
-
-    path = f"{file_path}?{','.join(f'{k}{v}' for k, v in params.items())}"
-
-    subset = xr.open_dataset(path) # , cache=True
-    #subset.load()
-
-    #%% get geopotential
-    time_range_sfc = "[0:1:0]"
-    surf_params = {
-        "x": x_range,
-        "y": y_range,
-        "time": f"{time_range}",
-        "surface_geopotential": f"{time_range_sfc}[0:1:0]{y_range}{x_range}",
-        "air_temperature_0m": f"{time_range}[0:1:0]{y_range}{x_range}",
-    } 
-    file_path_surf = f"{file_path.replace('meps_det_ml','meps_det_sfc')}?{','.join(f'{k}{v}' for k, v in surf_params.items())}"
-
-    # Load surface parameters and merge into the main dataset
-    surf = xr.open_dataset(file_path_surf, cache=True)
-    # Convert the surface geopotential to elevation
-    elevation = (surf.surface_geopotential / 9.80665).squeeze()
-    #elevation.plot()
-    subset['elevation'] = elevation
-    air_temperature_0m = surf.air_temperature_0m.squeeze()
-    subset['air_temperature_0m'] = air_temperature_0m
-    # subset.elevation.plot()
-    #%%
-    def hybrid_to_height(ds):
-        """
-        ds = subset
-        """
-        # Constants
-        R = 287.05  # Gas constant for dry air
-        g = 9.80665  # Gravitational acceleration
-
-        # Calculate the pressure at each level
-        p = ds['ap'] + ds['b'] * ds['surface_air_pressure']#.mean("ensemble_member")
-
-        # Get the temperature at each level
-        T = ds['air_temperature_ml']#.mean("ensemble_member")
-
-        # Calculate the height difference between each level and the surface
-        dp = ds['surface_air_pressure'] - p  # Pressure difference
-        dT = T - T.isel(hybrid=-1)  # Temperature difference relative to the surface
-        dT_mean = 0.5 * (T + T.isel(hybrid=-1))  # Mean temperature
-
-        # Calculate the height using the hypsometric equation
-        dz = (R * dT_mean / g) * np.log(ds['surface_air_pressure'] / p)
-
-        return dz
-    
-    
-    altitude = hybrid_to_height(subset).mean("time").squeeze().mean("x").mean("y")
-    subset = subset.assign_coords(altitude=('hybrid', altitude.data))
-    subset = subset.swap_dims({'hybrid': 'altitude'})
-
-    # filter subset on altitude ranges
-    subset = subset.squeeze()
-
-    wind_speed = np.sqrt(subset['x_wind_ml']**2 + subset['y_wind_ml']**2)
-    subset = subset.assign(wind_speed=(('time', 'altitude','y','x'), wind_speed.data))
-
-    
-    subset['thermal_temp_diff'] = compute_thermal_temp_difference(subset)
-    #subset = subset.assign(thermal_temp_diff=(('time', 'altitude','y','x'), thermal_temp_diff.data))
-
-    # Find the indices where the thermal temperature difference is zero or negative
-    # Create tiny value at ground level to avoid finding the ground as the thermal top
-    thermal_temp_diff = subset['thermal_temp_diff'] 
-    thermal_temp_diff = thermal_temp_diff.where(
-        (thermal_temp_diff.sum("altitude")>0)|(subset['altitude']!=subset.altitude.min()), 
-        thermal_temp_diff + 1e-6)
-    indices = (thermal_temp_diff > 0).argmax(dim="altitude")
-    # Get the altitudes corresponding to these indices
-    thermal_top = subset.altitude[indices]
-    subset = subset.assign(thermal_top=(('time', 'y', 'x'), thermal_top.data))
-    subset = subset.set_coords(["latitude", "longitude"])
-
-    return subset
-
-
-#%%
-def compute_thermal_temp_difference(subset):
-    lapse_rate = 0.0098
-    ground_temp = subset.air_temperature_0m-273.3
-    air_temp = (subset['air_temperature_ml']-273.3)#.ffill(dim='altitude')
-
-    # dimensions
-    # 'air_temperature_ml'  altitude: 4 y: 3, x: 3
-    # 'elevation'                       y: 3  x: 3
-    # 'altitude'            altitude: 4
-
-    # broadcast ground temperature to all altitudes, but let it decrease by lapse rate
-    altitude_diff = subset.altitude - subset.elevation
-    altitude_diff = altitude_diff.where(altitude_diff >= 0, 0)
-    temp_decrease = lapse_rate * altitude_diff
-    ground_parcel_temp = ground_temp - temp_decrease
-    thermal_temp_diff = (ground_parcel_temp - air_temp).clip(min=0)
-    return thermal_temp_diff
+import meps_utils
 
 def wind_and_temp_colorscales(wind_max=20, tempdiff_max=8):
     # build colorscale for thermal temperature difference
@@ -350,12 +206,21 @@ def latlon_to_xy(lat, lon):
     X,Y = proj.transform(lon,lat)
     return X,Y
 # %%
-def show_forecast():
+@st.cache_resource
+def connect_gcp():
+    gcp = meps_utils.GCPStorage()
+    return gcp
 
-    with st.spinner('Fetching data...'):                
-        if "file_path" not in st.session_state:
-            st.session_state.file_path = find_latest_meps_file()
-        subset = load_data(st.session_state.file_path)
+@st.cache_data(ttl=7200)
+def load_data():
+    gcp = connect_gcp()
+    local_file_path = gcp.download_latest_model_file()
+    subset = xr.open_dataset(local_file_path)
+    return subset
+
+def show_forecast():
+    with st.spinner('Fetching data...'):
+        subset = load_data()
 
     def date_controls():
         
@@ -415,7 +280,7 @@ def show_forecast():
             m.add_child(folium.LatLngPopup())
             return m
         m = build_map(date = st.session_state.forecast_date,hour=st.session_state.forecast_time)
-        map=st_folium(m)
+        map=st_folium(m, width="50%")
         def get_pos(lat,lng):
             return lat,lng
         if map['last_clicked'] is not None:
@@ -457,20 +322,6 @@ def show_forecast():
 
     st.markdown("Wind and sounding data from MEPS model (main model used by met.no), including the estimated ground temperature. Ive probably made many errors in this process.")
 
-    # Download new forecast if available
-    st.session_state.file_path = find_latest_meps_file()
-    subset = load_data(st.session_state.file_path)
-
-@st.cache_data
-def load_data(filepath):
-    local=False
-    if local:
-        subset = xr.open_dataset("subset.nc")
-    else:
-        subset = load_meps_for_location(filepath)
-        subset.to_netcdf("subset.nc")
-    return subset
-
 if __name__ == "__main__":
     run_streamlit = True
     if run_streamlit:
@@ -481,17 +332,12 @@ if __name__ == "__main__":
         lon = 7.09674
         x_target, y_target = latlon_to_xy(lat, lon)
         
-        dataset_file_path = find_latest_meps_file()
-        subset = load_data(dataset_file_path)
+        meps_utils.download_latest_model_file()
 
-        build_map_overlays(subset, date="2024-05-14", hour="16")
+        build_map_overlays(subset, date="2024-05-14", hour="15")
 
         wind_fig = create_wind_map(subset, altitude_max=3000,x_target=x_target, y_target=y_target)
         
-
         # Plot thermal top on a map for a specific time
         #subset.sel(time=subset.time.min()).thermal_top.plot()
         sounding_fig = create_sounding(subset, date="2024-05-12", hour=15, x_target=x_target, y_target=y_target)
-
-    
-
