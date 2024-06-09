@@ -211,16 +211,20 @@ def connect_gcp():
     gcp = meps_utils.GCPStorage()
     return gcp
 
-@st.cache_data(ttl=7200)
-def load_data():
-    gcp = connect_gcp()
-    local_file_path = gcp.download_latest_model_file()
+@st.cache_data
+def load_data(local_file_path):
     subset = xr.open_dataset(local_file_path)
     return subset
 
+@st.cache_data(ttl=60)
+def check_and_download_latest_model_file(_gcp):
+    return _gcp.download_latest_model_file()
+
 def show_forecast():
     with st.spinner('Fetching data...'):
-        subset = load_data()
+        gcp = connect_gcp()
+        local_file_path = check_and_download_latest_model_file(gcp)
+        subset = load_data(local_file_path)
 
     def date_controls():
         
@@ -245,7 +249,7 @@ def show_forecast():
             if st.button("⏮️", use_container_width=True):
                 st.session_state.forecast_date -= datetime.timedelta(days=1)
         with col3:
-            if st.button("⏭️", use_container_width=True, disabled=(st.session_state.forecast_date == start_stop_time[1])):
+            if st.button("⏭️", use_container_width=True, disabled=(st.session_state.forecast_date == start_stop_time[1].date())):
                 st.session_state.forecast_date += datetime.timedelta(days=1)
         with col_date:
             st.session_state.forecast_date = st.date_input(
@@ -325,7 +329,7 @@ def show_forecast():
 if __name__ == "__main__":
     run_streamlit = True
     if run_streamlit:
-        st.set_page_config(page_title="PGWeather",page_icon="🪂", layout="wide")
+        st.set_page_config(page_title="Vestavind",page_icon="🪂", layout="wide")
         show_forecast()
     else:
         lat = 61.22908
