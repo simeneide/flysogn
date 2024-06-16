@@ -222,10 +222,10 @@ def check_and_download_latest_model_file(_gcp):
 @st.cache_data(ttl=30)
 def build_map(_subset, date, hour):
     m = folium.Map(location=[61.22908, 7.09674], zoom_start=9, tiles="openstreetmap")
-    img_overlay, heightcolor = build_map_overlays(_subset, date=date, hour=hour)
+    #img_overlay, heightcolor = build_map_overlays(_subset, date=date, hour=hour)
     
-    img_overlay.add_to(m)
-    m.add_child(heightcolor,name="Thermal Height (m)")
+    #img_overlay.add_to(m)
+    #m.add_child(heightcolor,name="Thermal Height (m)")
     m.add_child(folium.LatLngPopup())
     return m
 
