@@ -15,9 +15,9 @@ RUN pip install -r requirements.txt --verbose
 
 COPY . .
 
-ENTRYPOINT ["streamlit", "run", "--server.port=8501", "--server.address=0.0.0.0", "--server.headless=true", "vestavind.py"]
+ENTRYPOINT ["streamlit", "run", "--server.port=80", "--server.address=0.0.0.0", "--server.headless=true", "vestavind.py"]
 
-EXPOSE 8501
+EXPOSE 80
 
 #HEALTHCHECK CMD curl --fail http://localhost:8501/_stcore/health
 
