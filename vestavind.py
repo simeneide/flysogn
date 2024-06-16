@@ -222,11 +222,12 @@ def check_and_download_latest_model_file(_gcp):
 @st.cache_data(ttl=30)
 def build_map(_subset, date, hour):
     m = folium.Map(location=[61.22908, 7.09674], zoom_start=9, tiles="openstreetmap")
-    #img_overlay, heightcolor = build_map_overlays(_subset, date=date, hour=hour)
+    img_overlay, heightcolor = build_map_overlays(_subset, date=date, hour=hour)
     
-    #img_overlay.add_to(m)
-    #m.add_child(heightcolor,name="Thermal Height (m)")
+    img_overlay.add_to(m)
+    
     m.add_child(folium.LatLngPopup())
+    #m.add_child(heightcolor,name="Thermal Height (m)")
     return m
 
 def show_forecast():
@@ -297,46 +298,45 @@ def show_forecast():
         
         m = build_map(_subset=subset, date = st.session_state.forecast_date,hour=st.session_state.forecast_time)
         map = st_folium(m,width="50%")
-
         if map['last_clicked'] is not None:
             st.session_state.target_latitude, st.session_state.target_longitude = map['last_clicked']['lat'],map['last_clicked']['lng']
-            st.write(st.session_state.target_latitude, st.session_state.target_longitude)
+            st.write(map)
     
-    # x_target, y_target = latlon_to_xy(st.session_state.target_latitude, st.session_state.target_longitude)
-    # wind_fig = create_wind_map(
-    #             subset,
-    #             date_start=date_start, 
-    #             date_end=date_end, 
-    #             altitude_max=st.session_state.altitude_max,
-    #             x_target=x_target,
-    #             y_target=y_target)
-    # st.pyplot(wind_fig)
-    # plt.close()
+    x_target, y_target = latlon_to_xy(st.session_state.target_latitude, st.session_state.target_longitude)
+    wind_fig = create_wind_map(
+                subset,
+                date_start=date_start, 
+                date_end=date_end, 
+                altitude_max=st.session_state.altitude_max,
+                x_target=x_target,
+                y_target=y_target)
+    st.pyplot(wind_fig)
+    plt.close()
     
 
-    # with st.expander("More settings", expanded=False):
-    #     st.session_state.forecast_length = st.number_input("multiday", 1, 3, 1, step=1,)
-    #     st.session_state.altitude_max = st.number_input("Max altitude", 0, 4000, 3000, step=500)
+    with st.expander("More settings", expanded=False):
+        st.session_state.forecast_length = st.number_input("multiday", 1, 3, 1, step=1,)
+        st.session_state.altitude_max = st.number_input("Max altitude", 0, 4000, 3000, step=500)
     
-    # ############################
-    # ######### SOUNDING #########
-    # ############################
-    # # st.markdown("---")
-    # # with st.expander("Sounding", expanded=False):
-    # #     date = datetime.datetime.combine(st.session_state.forecast_date, st.session_state.forecast_time)
+    ############################
+    ######### SOUNDING #########
+    ############################
+    st.markdown("---")
+    with st.expander("Sounding", expanded=False):
+        date = datetime.datetime.combine(st.session_state.forecast_date, st.session_state.forecast_time)
 
-    # #     with st.spinner('Building sounding...'):
-    # #         sounding_fig = create_sounding(
-    # #             subset, 
-    # #             date=date.date(), 
-    # #             hour=date.hour, 
-    # #             altitude_max=st.session_state.altitude_max,
-    # #             x_target=x_target,
-    # #             y_target=y_target)
-    # #     st.pyplot(sounding_fig)
-    # #     plt.close()
+        with st.spinner('Building sounding...'):
+            sounding_fig = create_sounding(
+                subset, 
+                date=date.date(), 
+                hour=date.hour, 
+                altitude_max=st.session_state.altitude_max,
+                x_target=x_target,
+                y_target=y_target)
+        st.pyplot(sounding_fig)
+        plt.close()
 
-    # st.markdown("Wind and sounding data from MEPS model (main model used by met.no), including the estimated ground temperature. Ive probably made many errors in this process.")
+    st.markdown("Wind and sounding data from MEPS model (main model used by met.no), including the estimated ground temperature. Ive probably made many errors in this process.")
 
 if __name__ == "__main__":
     run_streamlit = True
