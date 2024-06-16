@@ -5,7 +5,8 @@ FROM python:3.11
 
 
 RUN apt-get update && \
-    apt-get install -y libhdf5-serial-dev netcdf-bin libnetcdf-dev libgdal-de
+    apt-get install -y libhdf5-serial-dev netcdf-bin libnetcdf-dev 
+# libgdal-de
 
 WORKDIR /app
 COPY requirements.txt .
