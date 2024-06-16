@@ -1,6 +1,5 @@
 #%%
 import xarray as xr
-from siphon.catalog import TDSCatalog
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -300,7 +299,7 @@ def show_forecast():
         def get_pos(lat,lng):
             return lat,lng
         if map['last_clicked'] is not None:
-            st.session_state.target_latitude, st.session_state.target_longitude = get_pos(map['last_clicked']['lat'],map['last_clicked']['lng'])
+            st.session_state.target_latitude, st.session_state.target_longitude = map['last_clicked']['lat'],map['last_clicked']['lng']
     
     x_target, y_target = latlon_to_xy(st.session_state.target_latitude, st.session_state.target_longitude)
     wind_fig = create_wind_map(
@@ -321,20 +320,20 @@ def show_forecast():
     ############################
     ######### SOUNDING #########
     ############################
-    st.markdown("---")
-    with st.expander("Sounding", expanded=False):
-        date = datetime.datetime.combine(st.session_state.forecast_date, st.session_state.forecast_time)
+    # st.markdown("---")
+    # with st.expander("Sounding", expanded=False):
+    #     date = datetime.datetime.combine(st.session_state.forecast_date, st.session_state.forecast_time)
 
-        with st.spinner('Building sounding...'):
-            sounding_fig = create_sounding(
-                subset, 
-                date=date.date(), 
-                hour=date.hour, 
-                altitude_max=st.session_state.altitude_max,
-                x_target=x_target,
-                y_target=y_target)
-        st.pyplot(sounding_fig)
-        plt.close()
+    #     with st.spinner('Building sounding...'):
+    #         sounding_fig = create_sounding(
+    #             subset, 
+    #             date=date.date(), 
+    #             hour=date.hour, 
+    #             altitude_max=st.session_state.altitude_max,
+    #             x_target=x_target,
+    #             y_target=y_target)
+    #     st.pyplot(sounding_fig)
+    #     plt.close()
 
     st.markdown("Wind and sounding data from MEPS model (main model used by met.no), including the estimated ground temperature. Ive probably made many errors in this process.")
 
