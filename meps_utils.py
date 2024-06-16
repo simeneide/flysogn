@@ -17,10 +17,33 @@ def find_latest_meps_file():
     file_path = f"{file_url_base}/{sorted(datasets)[-1]}"
     return file_path
 
+def compute_temperature_above_surface(subset):
+    mask = subset['hybrid_altitude'] <= subset['elevation']
+    first_above_surface_idx = mask.argmax(dim='altitude', skipna=True)
+    valid_mask = mask.any(dim='altitude')
+    first_above_surface_idx = xr.where(valid_mask, first_above_surface_idx, len(subset.altitude)-1)
+    # Convert the index to integer position because take_along_axis expects integer indices
+    first_above_surface_idx = first_above_surface_idx.astype(int)
+
+    # Step 4: Extract the corresponding air temperatures using advanced indexing
+    # We need to align dimensions for take_along_axis, ensuring 'altitude' is at the correct position
+    air_temperature_ml = subset['air_temperature_ml'].transpose('altitude','time', 'y', 'x')
+
+    temperature_above_surface = np.take_along_axis(air_temperature_ml.values, first_above_surface_idx.values[np.newaxis,:, :, :], axis=0).squeeze()
+    temperature_above_surface = xr.DataArray(temperature_above_surface, dims=('time', 'y', 'x'))
+    return temperature_above_surface
+
 def compute_thermal_temp_difference(subset):
     lapse_rate = 0.0098
-    ground_temp = subset.air_temperature_0m-273.3
-    air_temp = (subset['air_temperature_ml']-273.3)#.ffill(dim='altitude')
+
+    air_temp = (subset['air_temperature_ml']-273.3)
+
+    subset['temperature_above_surface'] = compute_temperature_above_surface(subset)-273.3
+    use_internal_temp=True
+    if use_internal_temp:
+        ground_temp = subset['temperature_above_surface']+3
+    else:
+        ground_temp = subset.air_temperature_0m-273.3
 
     # dimensions
     # 'air_temperature_ml'  altitude: 4 y: 3, x: 3
@@ -54,6 +77,7 @@ def process_meps_file(file_path=None):
         "longitude": f"{y_range}{x_range}",
         "latitude": f"{y_range}{x_range}",
         "air_temperature_ml": f"{time_range}{hybrid_range}{y_range}{x_range}",
+        "specific_humidity_ml": f"{time_range}{hybrid_range}{y_range}{x_range}",
         "ap" : f"{hybrid_range}",
         "b" : f"{hybrid_range}",
         "surface_air_pressure": f"{time_range}{height_range}{y_range}{x_range}",
@@ -74,9 +98,10 @@ def process_meps_file(file_path=None):
         "time": f"{time_range}",
         "surface_geopotential": f"{time_range_sfc}[0:1:0]{y_range}{x_range}",
         "air_temperature_0m": f"{time_range}[0:1:0]{y_range}{x_range}",
+        "air_temperature_2m": f"{time_range}[0:1:0]{y_range}{x_range}",
     } 
     file_path_surf = f"{file_path.replace('meps_det_ml','meps_det_sfc')}?{','.join(f'{k}{v}' for k, v in surf_params.items())}"
-
+    #file_path_surf = 'https://thredds.met.no/thredds/dodsC/meps25epsarchive/2024/06/16/meps_det_sfc_20240616T09Z.ncml'
     # Load surface parameters and merge into the main dataset
     surf = xr.open_dataset(file_path_surf, cache=True)
     # Convert the surface geopotential to elevation
@@ -84,40 +109,115 @@ def process_meps_file(file_path=None):
     #elevation.plot()
     subset['elevation'] = elevation
     air_temperature_0m = surf.air_temperature_0m.squeeze()
-    subset['air_temperature_0m'] = air_temperature_0m
+    subset['air_temperature_0m'] = surf.air_temperature_0m.squeeze()
+    subset['air_temperature_2m'] = surf.air_temperature_2m.squeeze()
+    # (surf.air_temperature_2m-surf.air_temperature_0m).isel(time=14).plot()
+
+    # Get difference between air temperatures and plot on map
+
     # subset.elevation.plot()
+    # subset.air_temperature_0m.plot()
     #%%
-    def hybrid_to_height(ds):
-        """
-        ds = subset
-        """
-        # Constants
-        R = 287.05  # Gas constant for dry air
-        g = 9.80665  # Gravitational acceleration
+    def new_hybrid_to_height_MEPSCODE(subset):
+        nc = subset
+        nl = nc['hybrid'].size
+        ny = nc['y'     ].size
+        nx = nc['x'     ].size
 
-        # Calculate the pressure at each level
-        p = ds['ap'] + ds['b'] * ds['surface_air_pressure']#.mean("ensemble_member")
+        ap   = nc.variables['ap'][:]
+        b    = nc.variables['b' ][:]
+        ps   = nc.variables['surface_air_pressure'][0,0,:,:]
+        tair = nc.variables['air_temperature_ml'  ][0,:,:,:]
+        qair = nc.variables['specific_humidity_ml'][0,:,:,:]
 
-        # Get the temperature at each level
-        T = ds['air_temperature_ml']#.mean("ensemble_member")
+        t_virt = tair*(1 + 0.61*qair)
 
-        # Calculate the height difference between each level and the surface
-        dp = ds['surface_air_pressure'] - p  # Pressure difference
-        dT = T - T.isel(hybrid=-1)  # Temperature difference relative to the surface
-        dT_mean = 0.5 * (T + T.isel(hybrid=-1))  # Mean temperature
+        ap_half = [0.0]
+        b__half = [1.0]
+        for (ak,bk) in zip(ap[::-1], b[::-1]):
+            ap_half.append(2*ak - ap_half[-1])
+            b__half.append(2*bk - b__half[-1])
 
-        # Calculate the height using the hypsometric equation
-        dz = (R * dT_mean / g) * np.log(ds['surface_air_pressure'] / p)
+        ap_half = np.array(ap_half)[::-1]
+        b__half = np.array(b__half)[::-1]
 
-        return dz
+        # Formula to calculate pressure from hybrid: p(n,k,j,i) = ap(k) + b(k)*ps(n,j,i)"
+        # Note that k = 0 is top of atmosphere (ToA), and k = 64 is the lowest model level
+        pressure_at_k_half = np.empty((nl+1,ny,nx), ps.dtype)
+        for l,ak,bk in zip(range(ap_half.size), ap_half, b__half):
+            pressure_at_k_half[l,:,:] = ak + (bk*ps)
+
+        R = 287.058
+        g = 9.81
+
+        # Compute half-level heights
+        height_at_k_half = np.empty_like(pressure_at_k_half)
+        height_at_k_half[-1,:,:] = 0
+        for l in range(nl - 1, 0, -1):
+            height_at_k_half[l,:,:] = height_at_k_half[l+1,:,:] + (R*t_virt[l,:,:]/g)*np.log(pressure_at_k_half[l+1,:,:]/pressure_at_k_half[l,:,:])
+
+        # Compute full-level heights
+        height_at_k      = np.empty_like(t_virt)
+        for l in range(nl - 1, 0, -1):
+            height_at_k[l,:,:] = 0.5*(height_at_k_half[l+1,:,:] + height_at_k_half[l,:,:])
+
+        height_at_k[0,:,:] = height_at_k_half[1,:,:] + (R*t_virt[0,:,:]/g)*np.log(2)
+
+    def hybrid_to_height_timevec(subset):
+        nc = subset
+        # Adjusted to include the full time dimension
+        nt = nc['time'].size
+        nl = nc['hybrid'].size
+        ny = nc['y'     ].size
+        nx = nc['x'     ].size
+
+        ap   = nc.variables['ap'][:]
+        b    = nc.variables['b' ][:]
+        ps = nc.variables['surface_air_pressure'][:, 0, :, :]
+        tair = nc.variables['air_temperature_ml'][:, :, :, :]
+        qair = nc.variables['specific_humidity_ml'][:, :, :, :]
+
+        t_virt = tair * (1 + 0.61 * qair)
+
+        # No changes needed here as these are independent of the time dimension
+        ap_half = [0.0]
+        b_half = [1.0]
+        for (ak, bk) in zip(ap[::-1], b[::-1]):
+            ap_half.append(2 * ak - ap_half[-1])
+            b_half.append(2 * bk - b_half[-1])
+
+        ap_half = np.array(ap_half)[::-1]
+        b_half = np.array(b_half)[::-1]
+
+        # Adjusted to include the time dimension in pressure calculation
+        nt = ps.shape[0]  # Number of time steps
+        pressure_at_k_half = np.empty((nt, nl + 1, ny, nx), dtype=ps.dtype)
+        for l, ak, bk in zip(range(ap_half.size), ap_half, b_half):
+            pressure_at_k_half[:, l, :, :] = ak + (bk * ps)
+
+        R = 287.058
+        g = 9.81
+
+        # Vectorized computation of half-level heights
+        height_at_k_half = np.empty_like(pressure_at_k_half)
+        height_at_k_half[:, -1, :, :] = 0  # Initialize the lowest level to 0 for all time steps
+        for l in range(nl - 1, 0, -1):
+            height_at_k_half[:, l, :, :] = height_at_k_half[:, l + 1, :, :] + (R * t_virt[:, l, :, :] / g) * np.log(pressure_at_k_half[:, l + 1, :, :] / pressure_at_k_half[:, l, :, :])
+
+        # Vectorized computation of full-level heights
+        height_at_k = np.empty_like(t_virt)
+        for l in range(nl - 1, 0, -1):
+            height_at_k[:, l, :, :] = 0.5 * (height_at_k_half[:, l + 1, :, :] + height_at_k_half[:, l, :, :])
+
+        height_at_k[:, 0, :, :] = height_at_k_half[:, 1, :, :] + (R * t_virt[:, 0, :, :] / g) * np.log(2)
+        return height_at_k
     
-    
-    altitude = hybrid_to_height(subset).mean("time").squeeze().mean("x").mean("y")
-    subset = subset.assign_coords(altitude=('hybrid', altitude.data))
+    dims = ('time', 'hybrid', 'y', 'x')
+    altitude = hybrid_to_height_timevec(subset)
+    subset['hybrid_altitude'] = (dims, altitude)
+    altitude_coord = subset['hybrid_altitude'].mean("time").squeeze().mean("x").mean("y")
+    subset = subset.assign_coords(altitude=('hybrid', altitude_coord.data))
     subset = subset.swap_dims({'hybrid': 'altitude'})
-
-    # filter subset on altitude ranges
-    subset = subset.squeeze()
 
     wind_speed = np.sqrt(subset['x_wind_ml']**2 + subset['y_wind_ml']**2)
     subset = subset.assign(wind_speed=(('time', 'altitude','y','x'), wind_speed.data))
@@ -136,8 +236,11 @@ def process_meps_file(file_path=None):
     # Get the altitudes corresponding to these indices
     thermal_top = subset.altitude[indices]
     subset = subset.assign(thermal_top=(('time', 'y', 'x'), thermal_top.data))
-    subset = subset.set_coords(["latitude", "longitude"])
 
+    # Compute thermal top above the surface
+    thermal_top_above_surface = (thermal_top - subset.elevation).clip(min=0)
+    subset = subset.assign(thermal_top_above_surface=(('time', 'y', 'x'), thermal_top_above_surface.data))
+    subset = subset.set_coords(["latitude", "longitude"])
     return subset
 
 
