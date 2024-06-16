@@ -15,7 +15,7 @@ RUN pip install -r requirements.txt --verbose
 
 COPY . .
 
-ENTRYPOINT ["streamlit", "run", "--server.port=8501", "--server.address=0.0.0.0", "--server.headless=true", "test_folium.py"]
+ENTRYPOINT ["streamlit", "run", "--server.port=8501", "--server.address=0.0.0.0", "--server.headless=true", "vestavind.py"]
 
 EXPOSE 8501
 
