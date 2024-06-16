@@ -295,11 +295,11 @@ def show_forecast():
             m.add_child(folium.LatLngPopup())
             return m
         m = build_map(date = st.session_state.forecast_date,hour=st.session_state.forecast_time)
-        map=st_folium(m, width="50%")
-        def get_pos(lat,lng):
-            return lat,lng
+        map = st_folium(m, width="50%")
+
         if map['last_clicked'] is not None:
             st.session_state.target_latitude, st.session_state.target_longitude = map['last_clicked']['lat'],map['last_clicked']['lng']
+            st.write(st.session_state.target_latitude, st.session_state.target_longitude)
     
     x_target, y_target = latlon_to_xy(st.session_state.target_latitude, st.session_state.target_longitude)
     wind_fig = create_wind_map(
