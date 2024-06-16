@@ -11,7 +11,7 @@ from scipy.interpolate import griddata
 import folium
 import branca.colormap as cm
 import meps_utils
-
+from streamlit_folium import st_folium, folium_static
 def wind_and_temp_colorscales(wind_max=20, tempdiff_max=8):
     # build colorscale for thermal temperature difference
     wind_colors =    ["grey",   "blue",   "green",    "yellow",   "red",  "purple"]
@@ -219,6 +219,16 @@ def load_data(local_file_path):
 def check_and_download_latest_model_file(_gcp):
     return _gcp.download_latest_model_file()
 
+@st.cache_data(ttl=30)
+def build_map(_subset, date, hour):
+    m = folium.Map(location=[61.22908, 7.09674], zoom_start=9, tiles="openstreetmap")
+    img_overlay, heightcolor = build_map_overlays(_subset, date=date, hour=hour)
+    
+    img_overlay.add_to(m)
+    m.add_child(heightcolor,name="Thermal Height (m)")
+    m.add_child(folium.LatLngPopup())
+    return m
+
 def show_forecast():
     with st.spinner('Fetching data...'):
         gcp = connect_gcp()
@@ -283,19 +293,12 @@ def show_forecast():
     date_end= datetime.datetime.combine(st.session_state.forecast_date+datetime.timedelta(days=st.session_state.forecast_length), datetime.time(0, 0))
 
     ## MAP
+
+    
     with st.expander("Map", expanded=True):
-        from streamlit_folium import st_folium
-        st.cache_data(ttl=30)
-        def build_map(date, hour):
-            m = folium.Map(location=[61.22908, 7.09674], zoom_start=9, tiles="openstreetmap")
-            img_overlay, heightcolor = build_map_overlays(subset, date=date, hour=hour)
-            
-            img_overlay.add_to(m)
-            m.add_child(heightcolor,name="Thermal Height (m)")
-            m.add_child(folium.LatLngPopup())
-            return m
-        m = build_map(date = st.session_state.forecast_date,hour=st.session_state.forecast_time)
-        map = st_folium(m, width="50%")
+        
+        m = build_map(_subset=subset, date = st.session_state.forecast_date,hour=st.session_state.forecast_time)
+        map = st_folium(m)
 
         if map['last_clicked'] is not None:
             st.session_state.target_latitude, st.session_state.target_longitude = map['last_clicked']['lat'],map['last_clicked']['lng']
