@@ -28,8 +28,11 @@ def get_reference_time(days=7):
     latest_week = f"{start_str}/{end_str}"
     return latest_week
 
-def fetch_flatbre_data(days=7):
-    station="78.19.0"
+
+
+
+def fetch_nve_data(station, days=7):
+    #station="78.19.0"
     parameter="14,15"
     resolution_time="0"
     #reference_time="2018-01-01T10:00:00/2018-01-14T20:00:00"
@@ -94,12 +97,26 @@ def fetch_flatbre_data(days=7):
     return final_df
 
 def get_flatbre_data(days=7):
-    measurements = fetch_flatbre_data(days)
-    out = {'lat': 61.47384, 
-            'lon': 6.79536,
-            'altitude': 989,
-            'name': 'Storhogen',
-            'measurements': measurements}
-    return out
+   
+    stations = {'Anestølen' : 
+                {  
+                    'station': "77.24.0",
+                    'name': 'Anestølen',
+                    'lat': 61.364753,
+                    'lon': 6.907374,
+                    'altitude': 447,
+                },
+                'Flatbreen' :
+                {
+                    'station': "78.19.0",
+                    'name': 'Flatbreen',
+                    'lat': 61.47384, 
+                    'lon': 6.79536,
+                    'altitude': 989,}
+    }
+    for name, station in stations.items():
+        stations[name]['measurements'] = fetch_nve_data(station['station'], days)
+    
+    return stations
 if __name__ == "__main__":
     get_flatbre_data()

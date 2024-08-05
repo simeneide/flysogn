@@ -117,7 +117,6 @@ def collect_holfuy_data(station):
 
     return station
 
-
 @st.cache_data(ttl=180)
 def get_weather_measurements(lookback=24):
     """
@@ -126,8 +125,9 @@ def get_weather_measurements(lookback=24):
     output = {}
     ### Storhogen
     output['Storhogen'] = get_storhogen_data()
-
-    output['Flatbreen'] = nve_utils.get_flatbre_data(days=lookback/24)
+    nve_stations = nve_utils.get_flatbre_data(days=lookback/24)
+    for key, val in nve_stations.items():
+        output[key] = val
     ### Ecowitt
     output['Barten'] = get_historical_ecowitt(lookback=lookback)
     ### HOLFUY
