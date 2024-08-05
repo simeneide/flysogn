@@ -6,6 +6,7 @@ import pandas as pd
 from datetime import datetime, timedelta
 import numpy as np
 import json
+import nve_utils
 #%%
 def get_storhogen_data():
     url_metar = "https://api.met.no/weatherapi/tafmetar/1.0/metar.txt?icao=ENSG"
@@ -125,6 +126,8 @@ def get_weather_measurements(lookback=24):
     output = {}
     ### Storhogen
     output['Storhogen'] = get_storhogen_data()
+
+    output['Flatbreen'] = nve_utils.get_flatbre_data(days=lookback/24)
     ### Ecowitt
     output['Barten'] = get_historical_ecowitt(lookback=lookback)
     ### HOLFUY
