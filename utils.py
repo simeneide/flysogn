@@ -125,6 +125,8 @@ def get_weather_measurements(lookback=24):
     output = {}
     ### Storhogen
     output['Storhogen'] = get_storhogen_data()
+
+    # Anestølen and flatbreen
     nve_stations = nve_utils.get_flatbre_data(days=lookback/24)
     for key, val in nve_stations.items():
         output[key] = val

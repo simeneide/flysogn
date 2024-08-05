@@ -80,6 +80,8 @@ def fetch_nve_data(station, days=7):
         df = df.rename(columns={'value': parameter_name})
         # drop columns except time and parameter_name
         df = df[['time', parameter_name]]
+        # Convert the 'time' column to a datetime object and set cet timezone
+        df['time'] = pd.to_datetime(df['time']).dt.tz_convert('CET')
         # Store the DataFrame in the dictionary
         dfs[parameter_name] = df
 
