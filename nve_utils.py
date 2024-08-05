@@ -94,7 +94,7 @@ def fetch_nve_data(station, days=7):
             final_df = pd.merge(final_df, df, on='time', how='outer')
 
 
-    final_df.rename(columns={"Wind direction" : "wind_angle", "Wind speed": "wind_strength"}, inplace=True)
+    final_df.rename(columns={"Wind direction" : "wind_direction", "Wind speed": "wind_speed"}, inplace=True)
     # Print the final DataFrame
     return final_df
 

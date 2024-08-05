@@ -62,12 +62,12 @@ def build_live_map(data):
     # Add wind direction arrows to the map
     for station_name, station in data.items():
         latest_measurement = station['measurements'].iloc[0]
-        wind_speed = latest_measurement['wind_strength']
-        wind_angle = latest_measurement['wind_angle']
+        wind_speed = latest_measurement['wind_speed']
+        wind_direction = latest_measurement['wind_direction']
         wind_gust = latest_measurement.get('wind_gust')
 
         # Create an arrow icon
-        arrow_icon = create_arrow_icon(wind_speed, wind_gust, wind_angle)
+        arrow_icon = create_arrow_icon(wind_speed, wind_gust, wind_direction)
 
         # Add the arrow to the map
         folium.Marker(
@@ -83,7 +83,7 @@ def plot_wind_rose(df, rmax=20):
     #plt.style.use('seaborn')  # Use seaborn style for better visuals
     fig = plt.figure()
     ax = WindroseAxes.from_ax(fig=fig)
-    ax.bar(df['wind_angle'], df['wind_strength'], normed=True, opening=0.8, edgecolor='white')
+    ax.bar(df['wind_direction'], df['wind_speed'], normed=True, opening=0.8, edgecolor='white')
     ax.set_rmax(rmax)
     return fig
 
@@ -98,7 +98,7 @@ def wind_rose(data):
         df['time'] = pd.to_datetime(df['time'])
         min_time = df['time'].max() - pd.Timedelta(hours=lookback_hours)
         filtered_df = df[df['time'] >= min_time]
-        max_frequency = max(max_frequency, filtered_df['wind_strength'].value_counts().max())
+        max_frequency = max(max_frequency, filtered_df['wind_speed'].value_counts().max())
 
 
     # Calculate the number of columns based on screen width
@@ -144,7 +144,7 @@ def plot_wind_data(df_dict, selected_stations, data_type, yaxis_title, lookback_
             fig.add_trace(go.Scatter(
                 x=filtered_df.index, 
                 y=filtered_df[data_type], 
-                mode='markers' if data_type == 'wind_angle' else 'lines+markers',  # Change mode to 'markers' for wind angle
+                mode='markers' if data_type == 'wind_direction' else 'lines+markers',  # Change mode to 'markers' for wind angle
                 name=station,
                 line=dict(width=2, color=colors[i % len(colors)]),  # Use color from colors list
                 marker=dict(size=5),  # Adjust marker size here
@@ -152,7 +152,7 @@ def plot_wind_data(df_dict, selected_stations, data_type, yaxis_title, lookback_
             ))
 
         # Add wind gust data as a scatter plot with markers only for wind strength
-        if 'wind_gust' in filtered_df.columns and data_type == 'wind_strength':
+        if 'wind_gust' in filtered_df.columns and data_type == 'wind_speed':
             fig.add_trace(go.Scatter(
                 x=filtered_df.index, 
                 y=filtered_df['wind_gust'], 
@@ -205,7 +205,7 @@ def historical_wind_graphs(data):
 
     if selected_stations:
         # Filter data based on lookback period and plot
-        for data_type, yaxis_title in [('wind_strength', 'Wind Strength (m/s)'), ('wind_angle', 'Wind Angle (degrees)')]:
+        for data_type, yaxis_title in [('wind_speed', 'Wind Strength (m/s)'), ('wind_direction', 'Wind Angle (degrees)')]:
             fig = plot_wind_data(data, selected_stations, data_type, yaxis_title, lookback_hours)
             st.plotly_chart(fig, use_container_width=True)
 

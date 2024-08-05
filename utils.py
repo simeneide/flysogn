@@ -34,8 +34,8 @@ def get_storhogen_data():
                 {
                     #'location' : obs.station_id,
                     'time' : obs.time,
-                    'wind_angle' : sh_dir, 
-                    'wind_strength' : sh_windspeed*0.51 # kt to m/s
+                    'wind_direction' : sh_dir, 
+                    'wind_speed' : sh_windspeed*0.51 # kt to m/s
                     }
             )
         except:
@@ -56,8 +56,8 @@ from ecowitt_net_get import ecowitt_get_history, ecowitt_get_realtime
 
 # Output of each function is a dataframe with columns:
 # datetime object
-# wind_strength: m/s
-# wind_angle: degrees
+# wind_speed: m/s
+# wind_direction: degrees
 # wind_gust: m/s
 # temperatuere: C (optional)
 # battery: % (optional)
@@ -82,7 +82,7 @@ def get_historical_ecowitt(lookback=24):
     df.columns = df.columns.droplevel(1)
     # only keep last name after last . in column name:
     df.columns = df.columns.str.split('.').str[-1]
-    df.rename(columns={'wind_speed':'wind_strength', 'wind_direction' : 'wind_angle'}, inplace=True)
+    df.rename(columns={'wind_speed':'wind_speed', 'wind_direction' : 'wind_direction'}, inplace=True)
     df['time'] = pd.to_datetime(df.index)
     df.reset_index(drop=True, inplace=True)
 
@@ -101,13 +101,13 @@ def collect_holfuy_data(station):
     df = pd.DataFrame(modva_hist['measurements'])
     #    'wind': {'speed': 12.8, 'gust': 14.7, 'min': 10.6, 'direction': 199},
     # Expand the wind column:
-    df['wind_strength'] = df['wind'].apply(lambda x: x['speed'])
-    df['wind_angle'] = df['wind'].apply(lambda x: x['direction'])
+    df['wind_speed'] = df['wind'].apply(lambda x: x['speed'])
+    df['wind_direction'] = df['wind'].apply(lambda x: x['direction'])
     df['wind_gust'] = df['wind'].apply(lambda x: x['gust'])
     df['time'] = pd.to_datetime(df['dateTime'])
     
     
-    df = df[['time', 'wind_strength', 'wind_angle', 'wind_gust','battery','temperature']]
+    df = df[['time', 'wind_speed', 'wind_direction', 'wind_gust','battery','temperature']]
 
 
     
@@ -201,15 +201,15 @@ def collect_netatmo_data():
         data.append(obs)
 
         for mac, observations in d['measures'].items():
-            if "wind_angle" in observations.keys():
-                if observations['wind_angle'] >= 0:
-                    for s in ['wind_angle','wind_strength','wind_timeutc','gust_strength']:
+            if "wind_direction" in observations.keys():
+                if observations['wind_direction'] >= 0:
+                    for s in ['wind_direction','wind_speed','wind_timeutc','gust_strength']:
                         obs[s] = observations[s]
 
     df = pd.DataFrame(data).dropna()
     df['hours_since_reading'] = np.round(df['wind_timeutc'].apply(lambda epoch: (datetime.utcnow()-datetime.utcfromtimestamp(epoch)).seconds/3600), 1)
 
-    df['s'] = np.sqrt(df['wind_strength'])/500
+    df['s'] = np.sqrt(df['wind_speed'])/500
     return df
 # %%
 
