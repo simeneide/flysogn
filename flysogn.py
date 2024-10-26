@@ -38,7 +38,10 @@ def build_live_map(data):
     def create_arrow_icon(wind_speed, wind_gust, angle, max_wind_speed=20):
         # Adjust the size of the arrow based on wind speed
         base_size = 20
-        size = base_size + int((wind_speed / max_wind_speed) * base_size)
+        try:
+            size = base_size + int((wind_speed / max_wind_speed) * base_size)
+        except:
+            size = base_size
 
         # Interpolate color based on wind speed
         color = interpolate_color(wind_speed)
