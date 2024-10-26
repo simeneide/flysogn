@@ -21,3 +21,4 @@ scipy
 bottleneck
 google-cloud-storage
 streamlit_geolocation
+ogn-client

@@ -11,7 +11,9 @@ import matplotlib.pyplot as plt
 from streamlit_folium import folium_static
 from matplotlib.colors import to_hex, LinearSegmentedColormap
 from windrose import WindroseAxes
-import vestavind
+import collect_ogn
+import datetime
+
 # Set correct timezone
 import os, time
 os.environ['TZ'] = 'CET'
@@ -75,6 +77,17 @@ def build_live_map(data):
             icon=arrow_icon,
             popup=f"<b>{station_name}</b> {wind_speed} ({wind_gust if wind_gust else 'N/A'}) m/s (gust)"
         ).add_to(m)
+
+    # Display latest positions of aircraft
+    for aircraft, pos in st.latest_pos.items():
+        # only plot aircrafts updated the last 1 hrs:
+        #print((datetime.datetime.now(datetime.timezone.utc) - pos['timestamp']).seconds )
+        if (datetime.datetime.now() - pos['timestamp']).seconds < 3600*4:
+            folium.Marker(
+                [pos['latitude'], pos['longitude']],
+                icon=folium.Icon(color='blue', icon='plane', angle=30), # color='blue',
+                popup=f"<b>{aircraft}</b> altitude: {pos['altitude']:.0f} mas timestamp: {pos['timestamp']}"
+            ).add_to(m)
 
     return folium_static(m)
 
@@ -241,12 +254,17 @@ def show_puretrack():
 if __name__ == "__main__":
     st.set_page_config(page_title="Flysogn",page_icon="🪂", layout="wide")
 
+    # start ogn collector
+    if not hasattr(st, 'client_started'):
+        collect_ogn.start_client()
+        st.client_started = True
+
     if not hasattr(st, 'data'):
         with st.spinner('Wait for it...'):
-            st.data = utils.get_weather_measurements()
+            st.weather_data = utils.get_weather_measurements()
 
     # Create tabs
-    tab_livemap, tab_history, tab_livetrack, tab_windrose, tab_webcam, tab_windy, tab_holfuy = st.tabs(["Live map", "Historical weather", "livetrack", "Wind rose","Webcams","Windy", "holfuy"])
+    tab_livemap, tab_history, tab_livetrack, tab_windrose, tab_webcam, tab_windy, tab_holfuy, live_pilot_list = st.tabs(["Live map", "Historical weather", "livetrack", "Wind rose","Webcams","Windy", "holfuy", "Live pilot list"])
 
     # Make folio map width response:
     # https://github.com/gee-community/geemap/issues/713
@@ -262,13 +280,16 @@ if __name__ == "__main__":
 
     # Content for the first tab
     with tab_livemap:
-        build_live_map(st.data)
+        build_live_map(st.weather_data)
+    with live_pilot_list:
+        st.subheader("Latest aircraft positions")
+        st.dataframe(st.latest_pos)
     with tab_history:
-        historical_wind_graphs(st.data)
+        historical_wind_graphs(st.weather_data)
     with tab_livetrack:
         show_puretrack()
     with tab_windrose:
-        wind_rose(st.data)
+        wind_rose(st.weather_data)
     with tab_webcam:
         show_webcams()
     with tab_windy:
@@ -282,4 +303,4 @@ if __name__ == "__main__":
     st.text("Information gathered from various sources. Hobby project because why not.")
 
     # Update live weather data in the background
-    st.data = utils.get_weather_measurements()
+    st.weather_data = utils.get_weather_measurements()
