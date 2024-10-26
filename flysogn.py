@@ -234,16 +234,19 @@ def show_holfuy_widgets():
         
 def show_puretrack():
     url = "https://www.burnair.cloud/?layers=%2Clz%2Clzp%2Cto%2Ctodhv%2Clp%2Cpz%2Cfp%2Cna%2Cle%2Cca%2Cvw%2Ccc%2Ctt%2Cpt%2Ctl%2Ctp%2Cpp%2Cmp%2Cw-ch-uw%2Cc_20&visibility=%2Coff%2Coff%2Coff%2Coff%2Coff%2Coff%2Coff%2Coff%2Coff%2Coff%2Coff%2Coff%2Coff%2Coff%2Coff%2Coff%2Coff%2Coff%2Coff%2Cauto&base=bbt#12/61.2402/7.1298"
-    components.iframe(url, height=600)
 
+    url = "https://puretrack.io/?l=61.34928,7.13707&z=9.6"
+    components.iframe(url, height=600)
 
 if __name__ == "__main__":
     st.set_page_config(page_title="Flysogn",page_icon="🪂", layout="wide")
-    with st.spinner('Wait for it...'):
-        data = utils.get_weather_measurements()
+
+    if not hasattr(st, 'data'):
+        with st.spinner('Wait for it...'):
+            st.data = utils.get_weather_measurements()
 
     # Create tabs
-    tab_livemap, tab_history, tab_forecast, tab_windrose, tab_livetrack, tab_webcam, tab_windy, tab_holfuy = st.tabs(["Live map", "Historical Wind", "Forecast", "Wind roses","livetrack", "Webcams","Windy", "holfuy"])
+    tab_livemap, tab_history, tab_livetrack, tab_windrose, tab_webcam, tab_windy, tab_holfuy = st.tabs(["Live map", "Historical weather", "livetrack", "Wind rose","Webcams","Windy", "holfuy"])
 
     # Make folio map width response:
     # https://github.com/gee-community/geemap/issues/713
@@ -259,21 +262,24 @@ if __name__ == "__main__":
 
     # Content for the first tab
     with tab_livemap:
-        build_live_map(data)
+        build_live_map(st.data)
     with tab_history:
-        historical_wind_graphs(data)
+        historical_wind_graphs(st.data)
     with tab_livetrack:
         show_puretrack()
     with tab_windrose:
-        wind_rose(data)
+        wind_rose(st.data)
     with tab_webcam:
         show_webcams()
     with tab_windy:
         show_windy()
     with tab_holfuy:
         show_holfuy_widgets()
-    with tab_forecast:
-        vestavind.show_forecast()
+    #with tab_forecast:
+    #    vestavind.show_forecast()
 
     st.title("Flyinfo Sogn")
     st.text("Information gathered from various sources. Hobby project because why not.")
+
+    # Update live weather data in the background
+    st.data = utils.get_weather_measurements()
