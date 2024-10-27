@@ -184,7 +184,7 @@ def build_live_map(data):
                 'pgicon.png',  # Replace with the path to your custom icon
                 icon_size=(20, 20)  # Adjust the size as needed
             )
-            icon = pg_icon if "aircraft" in pos['beacon_type'] else folium.Icon(color='blue')
+            icon = pg_icon if "aircraft" in pos.get('beacon_type','') else folium.Icon(color='blue')
             folium.Marker(
                 [pos['latitude'], pos['longitude']],
                 icon=icon,  # Use the custom icon here
