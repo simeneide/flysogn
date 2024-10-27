@@ -153,7 +153,7 @@ def interpolate_color(wind_speed, thresholds=[2, 8, 14], colors=['white', 'green
 def build_live_map(data):
 
     # Create a Folium map
-    m = folium.Map(location=[61.1732881, 7.1195861], zoom_start=9, width='100%', height='100%')
+    m = folium.Map(location=[61.26, 7.1195861], zoom_start=10, width='100%', height='100%')
     # Add wind direction arrows to the map
     for station_name, station in data.items():
         latest_measurement = station['measurements'].iloc[0]
