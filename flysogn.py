@@ -13,6 +13,7 @@ from matplotlib.colors import to_hex, LinearSegmentedColormap
 from windrose import WindroseAxes
 import collect_ogn
 import datetime
+import altair as alt
 
 # Set correct timezone
 import os, time
@@ -64,6 +65,71 @@ def build_live_map(data):
     # Create a Folium map
     m = folium.Map(location=[61.1732881, 7.1195861], zoom_start=9, width='100%', height='100%')
 
+    
+    def create_wind_chart(wind_chart_data, station_name):
+        wind_chart_data['time'] = pd.to_datetime(wind_chart_data['time'], utc=True).dt.tz_convert('CET')
+        now = pd.Timestamp(datetime.datetime.now(), tz='CET')
+        wind_chart_data = wind_chart_data[wind_chart_data['time'] >= now - pd.Timedelta(hours=24)]
+
+        # Calculate min and max time for the full 24-hour span
+        min_time = wind_chart_data['time'].min()
+        max_time = wind_chart_data['time'].max()
+
+        # Area 1: Green (0 m/s to 5 m/s)
+        green_area = alt.Chart(pd.DataFrame({'time': [min_time, max_time], 'y0': 0, 'y1': 5})).mark_area(
+            color='rgba(0, 255, 0, 0.5)'  # Transparent green
+        ).encode(
+            x='time:T',
+            y='y0:Q',
+            y2='y1:Q'
+        )
+
+
+
+
+        # Area 2: Yellow (5 m/s to 10 m/s)
+        yellow_area = alt.Chart(pd.DataFrame({'time': [min_time, max_time],'y0' : 5, 'y1' : 10})).mark_area(
+            color='rgba(255, 255, 0, 0.5)'  # Transparent yellow
+        ).encode(
+            x='time:T',
+            y='y0:Q',
+            y2='y1:Q'
+        )
+
+        # Area 3: Black (10 m/s and above)
+        max_val = max(10,wind_chart_data.get("wind_gust",np.zeros(1)).max(),wind_chart_data['wind_speed'].max())
+        black_area = alt.Chart(pd.DataFrame({'time': [min_time, max_time], 'y0': 10, 'y1': max_val})).mark_area(
+            color='rgba(0, 0, 0, 0.5)'  # Transparent black
+        ).encode(
+            x='time:T',
+            y='y0:Q',
+            y2='y1:Q'
+        )
+
+        # Define two line charts
+        wind_speed_chart = alt.Chart(wind_chart_data).mark_line(color='blue').encode(
+            x='time:T',
+            y=alt.Y('wind_speed:Q', title='Wind Speed (m/s)'),
+            tooltip=['time:T', 'wind_speed:Q']
+        )
+
+        wind_gust_chart = alt.Chart(wind_chart_data).mark_line(strokeDash=[5, 5], color='red').encode(
+            x='time:T',
+            y=alt.Y('wind_gust:Q', title='Wind Gust (m/s)'),
+            tooltip=['time:T', 'wind_gust:Q']
+        ).transform_filter(
+            alt.datum.wind_gust != None
+        )
+
+        # Combine charts
+        chart = alt.layer(green_area, yellow_area, black_area, wind_speed_chart, wind_gust_chart).properties(
+            width=300,
+            height=150,
+            title=f"{station_name} Wind (last 24 hours)"
+        ).interactive()
+
+        return chart.to_dict()
+
     # Add wind direction arrows to the map
     for station_name, station in data.items():
         latest_measurement = station['measurements'].iloc[0]
@@ -74,11 +140,17 @@ def build_live_map(data):
         # Create an arrow icon
         arrow_icon = create_arrow_icon(wind_speed, wind_gust, wind_direction)
 
+        # Prepare time-series wind data for Vega chart
+        wind_chart_data = station['measurements']
+        wind_chart = create_wind_chart(wind_chart_data, station_name)
+
         # Add the arrow to the map
         folium.Marker(
             [station['lat'], station['lon']],
             icon=arrow_icon,
-            popup=f"<b>{station_name}</b> {wind_speed} ({wind_gust if wind_gust else 'N/A'}) m/s (gust)"
+            popup=folium.Popup(max_width=460).add_child(folium.VegaLite(wind_chart))
+
+            #popup=f"<b>{station_name}</b> {wind_speed} ({wind_gust if wind_gust else 'N/A'}) m/s (gust)"
         ).add_to(m)
 
     # Display latest positions of aircraft
@@ -301,9 +373,15 @@ if __name__ == "__main__":
         show_holfuy_widgets()
     #with tab_forecast:
     #    vestavind.show_forecast()
-
-    st.title("Flyinfo Sogn")
-    st.text("Information gathered from various sources. Hobby project because why not.")
-
+    
+    url = "https://www.xcontest.org/world/en/flights-search/?list[sort]=pts&filter[point]=7.103548%2061.345346&filter[radius]=45196&filter[mode]=CROSS&filter[date_mode]=dmy&filter[date]=&filter[value_mode]=dst&filter[min_value_dst]=&filter[catg]=&filter[route_types]=&filter[avg]=&filter[pilot]="
+    st.markdown(f"""
+## Paragliding info for Sogn og Fjordane, Norway
+Information gathered from various sources. Hobby project because why not.
+Sogn is in the end of the world's longest ice free fjord and a great place to fly when the weather is good. Our xc season starts in April and ends in September, with the best conditions early on when the snow has melted near the fjord, and stays in the mountains. Check out flights on [XContest]({url}), or check out a timelapse flight from [Sogndal]('https://www.youtube.com/watch?v=YtigYp1HFzk').
+                
+Site is "best effort maintained" by [Simen Eide](https://www.instagram.com/simenfly/), code is available on [Github](https://github.com/simeneide/flysogn).""")
+    
     # Update live weather data in the background
     st.weather_data = utils.get_weather_measurements()
+# %%
