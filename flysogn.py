@@ -20,116 +20,140 @@ import os, time
 os.environ['TZ'] = 'CET'
 time.tzset()
 
+def create_arrow_icon(wind_speed, wind_gust, angle, max_wind_speed=20):
+    # Adjust the size of the arrow based on wind speed
+    base_size = 20
+    try:
+        size = base_size + int((wind_speed / max_wind_speed) * base_size)
+    except:
+        size = base_size
+
+    # Interpolate color based on wind speed
+    color = interpolate_color(wind_speed)
+
+    # Adjust angle for map orientation
+    adjusted_angle = angle + 90
+
+    # Define font size for text
+    text_font_size = 10
+
+    # Adding text for wind speed next to the arrow
+    arrow_html = f'<div style="display: flex; align-items: center;">'
+    arrow_html += f'<div style="font-size: {size}px; color: {color}; transform: rotate({adjusted_angle}deg); text-shadow: -1px 0 black, 0 1px black, 1px 0 black, 0 -1px black;">&#10148;</div>'
+    arrow_html += f'<span style="margin-left: 5px; font-size: {text_font_size}px;">{wind_speed}m/s'
+    if wind_gust:
+        arrow_html += f'({wind_gust})'
+    arrow_html += '</span></div>'
+
+    return DivIcon(icon_size=(size * 2, size), icon_anchor=(size, size // 2), html=arrow_html)
+
+def create_wind_chart(wind_chart_data, station_name):
+    wind_chart_data['time'] = pd.to_datetime(wind_chart_data['time'], utc=True).dt.tz_convert('CET')
+    now = pd.Timestamp(datetime.datetime.now(), tz='CET')
+    wind_chart_data = wind_chart_data[wind_chart_data['time'] >= now - pd.Timedelta(hours=6)]
+
+    wind_chart_data = wind_chart_data.set_index('time').resample('15min').ffill().interpolate().reset_index(drop=False)
+
+    # Calculate min and max time for the full 24-hour span
+    min_time = wind_chart_data['time'].min()
+    max_time = wind_chart_data['time'].max()
+
+    # Area 1: Green (0 m/s to 5 m/s)
+    green_area = alt.Chart(pd.DataFrame({'time': [min_time, max_time], 'y0': 0, 'y1': 5})).mark_area(
+        color='rgba(0, 255, 0, 0.5)'  # Transparent green
+    ).encode(
+        x='time:T',
+        y='y0:Q',
+        y2='y1:Q'
+    )
+
+    # Area 2: Yellow (5 m/s to 10 m/s)
+    yellow_area = alt.Chart(pd.DataFrame({'time': [min_time, max_time],'y0' : 5, 'y1' : 10})).mark_area(
+        color='rgba(255, 255, 0, 0.5)'  # Transparent yellow
+    ).encode(
+        x='time:T',
+        y='y0:Q',
+        y2='y1:Q'
+    )
+
+    # Area 3: Black (10 m/s and above)
+    max_val = max(10,wind_chart_data.get("wind_gust",np.zeros(1)).max(),wind_chart_data['wind_speed'].max())
+    black_area = alt.Chart(pd.DataFrame({'time': [min_time, max_time], 'y0': 10, 'y1': max_val})).mark_area(
+        color='rgba(0, 0, 0, 0.5)'  # Transparent black
+    ).encode(
+        x='time:T',
+        y='y0:Q',
+        y2='y1:Q'
+    )
+
+    wind_chart_data['wind_direction'] = wind_chart_data['wind_direction'] % 360
+
+    # Add wind direction arrows
+    wind_direction_arrows = (
+        alt.Chart(wind_chart_data)
+        .transform_calculate(
+            angle="180 + datum.wind_direction"  # Compute rotation angle
+        )
+        .mark_text(
+            text='➤',  # Unicode text for the arrow
+            align='center',
+            baseline='middle',
+            fontSize=12
+        )
+        .encode(
+            x='time:T',
+            y=alt.value(12),  # Fixed position for separation
+            angle=alt.Angle('angle:Q'),  # Use calculated angle
+            tooltip=['time:T', 'wind_direction:Q']
+        )
+        .transform_filter(
+            alt.datum.wind_direction != None
+        )
+    )
+
+    # Define two line charts
+    wind_speed_chart = alt.Chart(wind_chart_data).mark_line(color='blue').encode(
+        x='time:T',
+        y=alt.Y('wind_speed:Q', title='Wind Speed (m/s)'),
+        tooltip=['time:T', 'wind_speed:Q']
+    )
+
+    wind_gust_chart = alt.Chart(wind_chart_data).mark_line(strokeDash=[5, 5], color='red').encode(
+        x='time:T',
+        y=alt.Y('wind_gust:Q', title='Wind Gust (m/s)'),
+        tooltip=['time:T', 'wind_gust:Q']
+    ).transform_filter(
+        alt.datum.wind_gust != None
+    )
+
+    # Combine charts
+    chart = alt.layer(green_area, yellow_area, black_area, wind_speed_chart, wind_gust_chart, wind_direction_arrows).properties(
+        width=300,
+        height=150,
+        title=f"{station_name} Wind (last 24 hours)"
+    ).interactive()
+
+    return chart.to_dict()
+
+def interpolate_color(wind_speed, thresholds=[2, 8, 14], colors=['white', 'green', 'red', 'black']):
+    # Normalize thresholds to range [0, 1]
+    norm_thresholds = [t / max(thresholds) for t in thresholds]
+    norm_thresholds = [0] + norm_thresholds + [1]
+
+    # Extend color list to match normalized thresholds
+    extended_colors = [colors[0]] + colors + [colors[-1]]
+
+    # Create colormap
+    cmap = LinearSegmentedColormap.from_list("wind_speed_cmap", list(zip(norm_thresholds, extended_colors)), N=256)
+
+    # Normalize wind speed to range [0, 1] and get color
+    norm_wind_speed = wind_speed / max(thresholds)
+    return to_hex(cmap(np.clip(norm_wind_speed, 0, 1)))
+
 def build_live_map(data):
-    def interpolate_color(wind_speed, thresholds=[2, 8, 14], colors=['white', 'green', 'red', 'black']):
-        # Normalize thresholds to range [0, 1]
-        norm_thresholds = [t / max(thresholds) for t in thresholds]
-        norm_thresholds = [0] + norm_thresholds + [1]
 
-        # Extend color list to match normalized thresholds
-        extended_colors = [colors[0]] + colors + [colors[-1]]
-
-        # Create colormap
-        cmap = LinearSegmentedColormap.from_list("wind_speed_cmap", list(zip(norm_thresholds, extended_colors)), N=256)
-
-        # Normalize wind speed to range [0, 1] and get color
-        norm_wind_speed = wind_speed / max(thresholds)
-        return to_hex(cmap(np.clip(norm_wind_speed, 0, 1)))
-
-    def create_arrow_icon(wind_speed, wind_gust, angle, max_wind_speed=20):
-        # Adjust the size of the arrow based on wind speed
-        base_size = 20
-        try:
-            size = base_size + int((wind_speed / max_wind_speed) * base_size)
-        except:
-            size = base_size
-
-        # Interpolate color based on wind speed
-        color = interpolate_color(wind_speed)
-
-        # Adjust angle for map orientation
-        adjusted_angle = angle + 90
-
-        # Define font size for text
-        text_font_size = 10
-
-        # Adding text for wind speed next to the arrow
-        arrow_html = f'<div style="display: flex; align-items: center;">'
-        arrow_html += f'<div style="font-size: {size}px; color: {color}; transform: rotate({adjusted_angle}deg); text-shadow: -1px 0 black, 0 1px black, 1px 0 black, 0 -1px black;">&#10148;</div>'
-        arrow_html += f'<span style="margin-left: 5px; font-size: {text_font_size}px;">{wind_speed}m/s'
-        if wind_gust:
-            arrow_html += f'({wind_gust})'
-        arrow_html += '</span></div>'
-
-        return DivIcon(icon_size=(size * 2, size), icon_anchor=(size, size // 2), html=arrow_html)
     # Create a Folium map
     m = folium.Map(location=[61.1732881, 7.1195861], zoom_start=9, width='100%', height='100%')
-
-    
-    def create_wind_chart(wind_chart_data, station_name):
-        wind_chart_data['time'] = pd.to_datetime(wind_chart_data['time'], utc=True).dt.tz_convert('CET')
-        now = pd.Timestamp(datetime.datetime.now(), tz='CET')
-        wind_chart_data = wind_chart_data[wind_chart_data['time'] >= now - pd.Timedelta(hours=24)]
-
-        # Calculate min and max time for the full 24-hour span
-        min_time = wind_chart_data['time'].min()
-        max_time = wind_chart_data['time'].max()
-
-        # Area 1: Green (0 m/s to 5 m/s)
-        green_area = alt.Chart(pd.DataFrame({'time': [min_time, max_time], 'y0': 0, 'y1': 5})).mark_area(
-            color='rgba(0, 255, 0, 0.5)'  # Transparent green
-        ).encode(
-            x='time:T',
-            y='y0:Q',
-            y2='y1:Q'
-        )
-
-
-
-
-        # Area 2: Yellow (5 m/s to 10 m/s)
-        yellow_area = alt.Chart(pd.DataFrame({'time': [min_time, max_time],'y0' : 5, 'y1' : 10})).mark_area(
-            color='rgba(255, 255, 0, 0.5)'  # Transparent yellow
-        ).encode(
-            x='time:T',
-            y='y0:Q',
-            y2='y1:Q'
-        )
-
-        # Area 3: Black (10 m/s and above)
-        max_val = max(10,wind_chart_data.get("wind_gust",np.zeros(1)).max(),wind_chart_data['wind_speed'].max())
-        black_area = alt.Chart(pd.DataFrame({'time': [min_time, max_time], 'y0': 10, 'y1': max_val})).mark_area(
-            color='rgba(0, 0, 0, 0.5)'  # Transparent black
-        ).encode(
-            x='time:T',
-            y='y0:Q',
-            y2='y1:Q'
-        )
-
-        # Define two line charts
-        wind_speed_chart = alt.Chart(wind_chart_data).mark_line(color='blue').encode(
-            x='time:T',
-            y=alt.Y('wind_speed:Q', title='Wind Speed (m/s)'),
-            tooltip=['time:T', 'wind_speed:Q']
-        )
-
-        wind_gust_chart = alt.Chart(wind_chart_data).mark_line(strokeDash=[5, 5], color='red').encode(
-            x='time:T',
-            y=alt.Y('wind_gust:Q', title='Wind Gust (m/s)'),
-            tooltip=['time:T', 'wind_gust:Q']
-        ).transform_filter(
-            alt.datum.wind_gust != None
-        )
-
-        # Combine charts
-        chart = alt.layer(green_area, yellow_area, black_area, wind_speed_chart, wind_gust_chart).properties(
-            width=300,
-            height=150,
-            title=f"{station_name} Wind (last 24 hours)"
-        ).interactive()
-
-        return chart.to_dict()
-
     # Add wind direction arrows to the map
     for station_name, station in data.items():
         latest_measurement = station['measurements'].iloc[0]
