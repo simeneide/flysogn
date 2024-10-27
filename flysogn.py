@@ -158,9 +158,13 @@ def build_live_map(data):
         # only plot aircrafts updated the last 1 hrs:
         #print((datetime.datetime.now(datetime.timezone.utc) - pos['timestamp']).seconds )
         if (datetime.datetime.now() - pos['timestamp']).seconds < 3600*4:
+            custom_icon = folium.CustomIcon(
+                'pgicon.png',  # Replace with the path to your custom icon
+                icon_size=(20, 20)  # Adjust the size as needed
+            )
             folium.Marker(
                 [pos['latitude'], pos['longitude']],
-                icon=folium.Icon(color='blue', icon='plane', angle=30), # color='blue',
+                icon=custom_icon,  # Use the custom icon here
                 popup=f"<b>{aircraft}</b> altitude: {pos['altitude']:.0f} mas timestamp: {pos['timestamp']}"
             ).add_to(m)
 
