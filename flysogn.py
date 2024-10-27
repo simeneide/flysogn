@@ -215,6 +215,12 @@ def build_live_map(data):
             'url' : "https://cdn.norwaylive.tv/snapshots/6637b019-aeab-4a45-b671-f1f9bae39d09/kam1utsnitt2.jpg",
             'latitude' : 61.289154,
             'longitude' : 6.967829
+        },
+        {
+            'name' : "Turtagrø",
+            'url' : "https://turtagro.no/images/image_00001.jpg",
+            'latitude' : 61.5043928,
+            'longitude' : 7.8012656
         }
         ]
     # Iterate through the webcams and add markers with image popups
@@ -341,7 +347,16 @@ def show_puretrack():
     components.iframe(url, height=600)
 
 if __name__ == "__main__":
-    st.set_page_config(page_title="Flysogn",page_icon="🪂", layout="wide")
+    st.set_page_config(
+        page_title="Flysogn",
+        page_icon="🪂", 
+        layout="wide",
+        menu_items={
+            #'Get Help': 'Hah, you thought you could get help here?',
+            'Report a bug': "https://github.com/simeneide/flysogn/issues",
+            'About': "Made by Simen Eide on his spare time when he should have been out in the sun."
+            }
+        )
 
     # start ogn collector
     if not hasattr(st, 'client_started'):
