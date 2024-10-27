@@ -191,6 +191,42 @@ def build_live_map(data):
                 popup=f"<b>{aircraft}</b> altitude: {pos['altitude']:.0f} mas timestamp: {pos['timestamp']}"
             ).add_to(m)
 
+    webcams = [
+        {
+            'name' : "Sogn skisenter parkering",
+            'url' : "http://sognskisenter.org/webkam/parkering/image.jpg",
+            'latitude' : 61.335706,
+            'longitude' : 7.217362,
+        },
+        {
+            'name' : "Rødekorshytta",
+            'url' : "http://sognskisenter.org/webkam/rodekorshytta/image.jpg",
+            'latitude' : 61.342406, 
+            'longitude' : 7.184607,
+        },
+        {
+            'name' : "Sogn skisenter Mast 16",
+            'url' : "http://sognskisenter.org/webkam/mast16/image.jpg",
+            'latitude' : 61.339414,
+            'longitude' : 7.193114,
+        },
+        {
+            'name' : "Rindabotn",
+            'url' : "https://cdn.norwaylive.tv/snapshots/6637b019-aeab-4a45-b671-f1f9bae39d09/kam1utsnitt2.jpg",
+            'latitude' : 61.289154,
+            'longitude' : 6.967829
+        }
+        ]
+    # Iterate through the webcams and add markers with image popups
+    for webcam in webcams:
+        folium.Marker(
+            [webcam['latitude'], webcam['longitude']],
+            icon=folium.Icon(icon='camera', color='green'),  # Icon representing a camera
+            popup=folium.Popup(f'<img src="{webcam["url"]}" alt="Webcam Image" width="300">', max_width=300)
+        ).add_to(m)
+
+
+
     return folium_static(m)
 
 def plot_wind_data(df_dict, selected_stations, data_type, yaxis_title, lookback_hours):
@@ -281,12 +317,6 @@ def historical_wind_graphs(data):
             fig = plot_wind_data(data, selected_stations, data_type, yaxis_title, lookback_hours)
             st.plotly_chart(fig, use_container_width=True)
 
-def show_webcams():
-    images = ["http://sognskisenter.org/webkam/parkering/image.jpg",
-    "http://sognskisenter.org/webkam/rodekorshytta/image.jpg",
-    "http://sognskisenter.org/webkam/mast16/image.jpg"]
-    st.image(images, use_column_width=True)
-
 def show_windy():
     st.components.v1.iframe(
         src="https://embed.windy.com/embed2.html?lat=61.010&lon=7.015&detailLat=61.249&detailLon=7.086&width=650&height=450&zoom=8&level=850h&overlay=wind&product=ecmwf&menu=&message=true&marker=&calendar=now&pressure=&type=map&location=coordinates&detail=true&metricWind=m%2Fs&metricTemp=%C2%B0C&radarRange=-1",
@@ -323,7 +353,7 @@ if __name__ == "__main__":
             st.weather_data = utils.get_weather_measurements()
 
     # Create tabs
-    tab_livemap, tab_history, tab_livetrack, tab_webcam, tab_windy, tab_holfuy, live_pilot_list = st.tabs(["Live map", "Historical weather", "Puretrack", "Webcams","Windy", "holfuy", "Live pilot list"])
+    tab_livemap, tab_history, tab_livetrack, tab_windy, tab_holfuy, live_pilot_list = st.tabs(["Live map", "Historical weather", "Puretrack","Windy", "holfuy", "Live pilot list"])
 
     # Make folio map width response:
     # https://github.com/gee-community/geemap/issues/713
@@ -347,8 +377,6 @@ if __name__ == "__main__":
         historical_wind_graphs(st.weather_data)
     with tab_livetrack:
         show_puretrack()
-    with tab_webcam:
-        show_webcams()
     with tab_windy:
         show_windy()
     with tab_holfuy:
