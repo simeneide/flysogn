@@ -23,11 +23,12 @@ def process_beacon(raw_message):
         beacon = parse(raw_message)
         if beacon['aprs_type'] == "position":
             if (lon_min < beacon['longitude'] < lon_max) and (lat_min < beacon['latitude'] < lat_max):
-                beacon_keep_vars = ['timestamp','name', 'latitude', 'longitude','altitude']
+                print(beacon)
+                beacon_keep_vars = ['timestamp','name', 'latitude', 'longitude','altitude','beacon_type']
                 beacon = {k: v for k, v in beacon.items() if k in beacon_keep_vars}
                 name = known_devices.get(beacon['name'], beacon['name'])
                 st.latest_pos[name] = beacon
-                print(beacon)
+                #print(beacon)
     except (ParseError, NotImplementedError):
         pass
     except Exception as e:

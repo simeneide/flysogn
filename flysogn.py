@@ -149,8 +149,6 @@ def build_live_map(data):
             [station['lat'], station['lon']],
             icon=arrow_icon,
             popup=folium.Popup(max_width=460).add_child(folium.VegaLite(wind_chart))
-
-            #popup=f"<b>{station_name}</b> {wind_speed} ({wind_gust if wind_gust else 'N/A'}) m/s (gust)"
         ).add_to(m)
 
     # Display latest positions of aircraft
@@ -158,60 +156,18 @@ def build_live_map(data):
         # only plot aircrafts updated the last 1 hrs:
         #print((datetime.datetime.now(datetime.timezone.utc) - pos['timestamp']).seconds )
         if (datetime.datetime.now() - pos['timestamp']).seconds < 3600*4:
-            custom_icon = folium.CustomIcon(
+            pg_icon = folium.CustomIcon(
                 'pgicon.png',  # Replace with the path to your custom icon
                 icon_size=(20, 20)  # Adjust the size as needed
             )
+            icon = pg_icon if "aircraft" in pos['beacon_type'] else folium.Icon(color='blue')
             folium.Marker(
                 [pos['latitude'], pos['longitude']],
-                icon=custom_icon,  # Use the custom icon here
+                icon=icon,  # Use the custom icon here
                 popup=f"<b>{aircraft}</b> altitude: {pos['altitude']:.0f} mas timestamp: {pos['timestamp']}"
             ).add_to(m)
 
     return folium_static(m)
-
-# Function to create wind rose
-def plot_wind_rose(df, rmax=20):
-    #plt.style.use('seaborn')  # Use seaborn style for better visuals
-    fig = plt.figure()
-    ax = WindroseAxes.from_ax(fig=fig)
-    ax.bar(df['wind_direction'], df['wind_speed'], normed=True, opening=0.8, edgecolor='white')
-    ax.set_rmax(rmax)
-    return fig
-
-# Streamlit app
-def wind_rose(data):
-    # User input for lookback period
-    lookback_hours = st.slider("Select lookback period in hours", 1, 48, 12)
-
-    max_frequency = 0
-    for station_info in data.values():
-        df = station_info['measurements']
-        df['time'] = pd.to_datetime(df['time'])
-        min_time = df['time'].max() - pd.Timedelta(hours=lookback_hours)
-        filtered_df = df[df['time'] >= min_time]
-        max_frequency = max(max_frequency, filtered_df['wind_speed'].value_counts().max())
-
-
-    # Calculate the number of columns based on screen width
-    cols = st.columns(2)
-
-    # Process and display wind roses for each station
-    idx = 0  # Index to track current column
-    for station_name, station_info in data.items():
-        with cols[idx % len(cols)]:
-            st.subheader(f"Wind Rose for {station_name}")
-
-            # Convert 'time' column to datetime and filter based on lookback period
-            df = station_info['measurements']
-            df['time'] = pd.to_datetime(df['time'])
-            min_time = df['time'].max() - pd.Timedelta(hours=lookback_hours)
-            filtered_df = df[df['time'] >= min_time]
-
-            # Display wind rose
-            st.pyplot(plot_wind_rose(filtered_df, rmax=max_frequency))
-
-        idx += 1
 
 def plot_wind_data(df_dict, selected_stations, data_type, yaxis_title, lookback_hours):
     fig = go.Figure()
@@ -226,7 +182,7 @@ def plot_wind_data(df_dict, selected_stations, data_type, yaxis_title, lookback_
         df.set_index('time', inplace=True)
 
         # Resample and interpolate data to be every 15 minutes
-        df = df.resample('15T').interpolate()
+        df = df.resample('15min').interpolate()
 
         # Filter data based on lookback period
         min_time = df.index.max() - pd.Timedelta(hours=lookback_hours)
@@ -343,7 +299,7 @@ if __name__ == "__main__":
             st.weather_data = utils.get_weather_measurements()
 
     # Create tabs
-    tab_livemap, tab_history, tab_livetrack, tab_windrose, tab_webcam, tab_windy, tab_holfuy, live_pilot_list = st.tabs(["Live map", "Historical weather", "livetrack", "Wind rose","Webcams","Windy", "holfuy", "Live pilot list"])
+    tab_livemap, tab_history, tab_livetrack, tab_webcam, tab_windy, tab_holfuy, live_pilot_list = st.tabs(["Live map", "Historical weather", "Puretrack", "Webcams","Windy", "holfuy", "Live pilot list"])
 
     # Make folio map width response:
     # https://github.com/gee-community/geemap/issues/713
@@ -367,8 +323,6 @@ if __name__ == "__main__":
         historical_wind_graphs(st.weather_data)
     with tab_livetrack:
         show_puretrack()
-    with tab_windrose:
-        wind_rose(st.weather_data)
     with tab_webcam:
         show_webcams()
     with tab_windy:
