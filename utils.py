@@ -32,7 +32,6 @@ def get_storhogen_data():
 
             obs_list.append(
                 {
-                    #'location' : obs.station_id,
                     'time' : obs.time,
                     'wind_direction' : sh_dir, 
                     'wind_speed' : sh_windspeed*0.51 # kt to m/s
@@ -42,6 +41,7 @@ def get_storhogen_data():
             pass
     df = pd.DataFrame(obs_list)
     df['time'] =  pd.to_datetime(df['time'])
+    df['wind_speed'] = df['wind_speed'].round(1)
     output = {
         'lat' : 61.1732881,
         'lon' : 7.1195861,
@@ -117,6 +117,8 @@ def collect_holfuy_data(station):
 
     return station
 
+from utils_metno import fetch_metno_station
+
 @st.cache_data(ttl=180)
 def get_weather_measurements(lookback=24):
     """
@@ -125,6 +127,11 @@ def get_weather_measurements(lookback=24):
     output = {}
     ### Storhogen
     output['Storhogen'] = get_storhogen_data()
+
+    ## METNO
+    metno_stations = fetch_metno_station(lookback=int(lookback/24))
+    for key, val in metno_stations.items():
+        output[key] = val
 
     # Anestølen and flatbreen
     nve_stations = nve_utils.get_flatbre_data(days=lookback/24)

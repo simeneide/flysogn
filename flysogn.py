@@ -156,6 +156,9 @@ def build_live_map(data):
     m = folium.Map(location=[61.26, 7.1195861], zoom_start=10, width='100%', height='100%')
     # Add wind direction arrows to the map
     for station_name, station in data.items():
+        # if measurements dont have wind data, skip
+        if 'wind_direction' not in station['measurements'].columns:
+            continue
         latest_measurement = station['measurements'].iloc[0]
         wind_speed = latest_measurement['wind_speed']
         wind_direction = latest_measurement['wind_direction']

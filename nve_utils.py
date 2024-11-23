@@ -33,7 +33,7 @@ def get_reference_time(days=7):
 
 def fetch_nve_data(station, days=7):
     #station="78.19.0"
-    parameter="14,15"
+    parameter="14,15,17"
     resolution_time="0"
     #reference_time="2018-01-01T10:00:00/2018-01-14T20:00:00"
 
@@ -94,11 +94,14 @@ def fetch_nve_data(station, days=7):
             final_df = pd.merge(final_df, df, on='time', how='outer')
 
 
-    final_df.rename(columns={"Wind direction" : "wind_direction", "Wind speed": "wind_speed"}, inplace=True)
+    final_df.rename(columns={"Wind direction" : "wind_direction", "Wind speed": "wind_speed", "Air temperature" : "temperature"}, inplace=True)
     # Print the final DataFrame
     return final_df
 
 def get_flatbre_data(days=7):
+    """
+    days=7
+    """
    
     stations = {'Anestølen' : 
                 {  
