@@ -41,9 +41,10 @@ def fetch_metno_station(lookback=7):
 
 
     endpoint = 'https://frost.met.no/observations/v0.jsonld'
+    # elementIds can be found at https://frost.met.no/elementtable
     parameters = {
         'sources': ",".join(stations_df['id'].values),
-        'elements': 'air_temperature,wind_speed,wind_from_direction', # , wind_speed, wind_from_direction
+        'elements': 'air_temperature,wind_speed,wind_from_direction,max(wind_speed_of_gust PT10M)', # , wind_speed, wind_from_direction
         'referencetime': referencetime,
     }
 
@@ -53,11 +54,9 @@ def fetch_metno_station(lookback=7):
     # Check if the request worked, print out any errors
     if r.status_code == 200:
         data = json['data']
-        print('Data retrieved from frost.met.no!')
     else:
-        print('Error! Returned status code %s' % r.status_code)
-        print('Message: %s' % json['error']['message'])
-        print('Reason: %s' % json['error']['reason'])
+        print('Error! Could not get data from frost.met.no. Response code:', r.status_code)
+        return {}
     # %%
     # This will return a Dataframe with all of the observations in a table format
     dfs = []
@@ -75,6 +74,7 @@ def fetch_metno_station(lookback=7):
     # rename elementId names:
     df.loc[df['elementId'] == 'air_temperature', 'elementId'] = 'temperature'
     df.loc[df['elementId'] == 'wind_from_direction', 'elementId'] = 'wind_direction'
+    df.loc[df['elementId'] == 'max(wind_speed_of_gust PT10M)', 'elementId'] = 'wind_gust'
 
     df['sourceId'] = df['sourceId'].apply(lambda x: x.split(':')[0])
 
