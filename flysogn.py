@@ -187,7 +187,11 @@ def build_live_map(data):
                 'pgicon.png',  # Replace with the path to your custom icon
                 icon_size=(20, 20)  # Adjust the size as needed
             )
-            icon = pg_icon if "aircraft" in pos.get('beacon_type','') else folium.Icon(color='blue')
+            plane_icon = folium.CustomIcon(
+                'planeicon.png',  # Replace with the path to your custom icon
+                icon_size=(20, 20)  # Adjust the size as needed
+            )
+            icon = pg_icon if "aircraft" in pos.get('beacon_type','') else plane_icon
             folium.Marker(
                 [pos['latitude'], pos['longitude']],
                 icon=icon,  # Use the custom icon here
@@ -502,6 +506,8 @@ if __name__ == "__main__":
     # Content for the first tab
     with tab_livemap:
         build_live_map(st.weather_data)
+    with tab_sounding:
+        plot_sounding(st.weather_data)
     with live_pilot_list:
         st.subheader("Latest aircraft positions")
         st.dataframe(st.latest_pos)
@@ -513,8 +519,7 @@ if __name__ == "__main__":
         show_windy()
     with tab_holfuy:
         show_holfuy_widgets()
-    with tab_sounding:
-        plot_sounding(st.weather_data)
+
     
     
     url = "https://www.xcontest.org/world/en/flights-search/?list[sort]=pts&filter[point]=7.103548%2061.345346&filter[radius]=45196&filter[mode]=CROSS&filter[date_mode]=dmy&filter[date]=&filter[value_mode]=dst&filter[min_value_dst]=&filter[catg]=&filter[route_types]=&filter[avg]=&filter[pilot]="

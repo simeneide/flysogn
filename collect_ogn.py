@@ -3,7 +3,7 @@ from ogn.client import AprsClient
 from ogn.parser import parse, ParseError
 from threading import Thread
 import time  # To include small delays for improved responsiveness
-
+import datetime
 lon_min = 6
 lat_min = 60#61
 lon_max = 9 #7.5
@@ -23,12 +23,17 @@ def process_beacon(raw_message):
         beacon = parse(raw_message)
         if beacon['aprs_type'] == "position":
             if (lon_min < beacon['longitude'] < lon_max) and (lat_min < beacon['latitude'] < lat_max):
-                print(beacon)
+                
                 beacon_keep_vars = ['timestamp','name', 'latitude', 'longitude','altitude','beacon_type']
                 beacon = {k: v for k, v in beacon.items() if k in beacon_keep_vars}
+                #print(beacon)
                 name = known_devices.get(beacon['name'], beacon['name'])
                 st.latest_pos[name] = beacon
-                #print(beacon)
+                stale_threshold = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=1)
+                st.latest_pos = {
+                    name: pos for name, pos in st.latest_pos.items()
+                    if pos['timestamp'] > stale_threshold
+                }
     except (ParseError, NotImplementedError):
         pass
     except Exception as e:
