@@ -349,6 +349,119 @@ def show_puretrack():
     url = "https://puretrack.io/?l=61.34928,7.13707&z=9.6"
     components.iframe(url, height=600)
 
+
+def plot_sounding(data):
+    """
+    data = st.weather_data
+    """
+    times = []
+    for station_name, station in data.items():
+        df = station['measurements']
+        # Ensure the time column is datetime with timezone and convert to UTC
+        df['time'] = pd.to_datetime(df['time'], errors='coerce')
+        df['time'] = df['time'].dt.tz_convert('UTC')  # Convert to UTC
+        times.extend(df['time'])
+
+    times = pd.to_datetime(times, utc=True)  # Ensure that the list handles timezone as UTC
+    min_time = times.min()
+    max_time = times.max()
+
+    # Allow the user to select a datetime
+    selected_datetime = st.slider(
+        "Select datetime",
+        min_value=min_time.to_pydatetime(),
+        max_value=max_time.to_pydatetime(),
+        value=max_time.to_pydatetime(),
+        format="YYYY-MM-DD HH:mm:ss",
+        step=datetime.timedelta(minutes=15),
+    )
+
+    temperatures = []
+    altitudes = []
+    station_names = []
+
+    for station_name, station in data.items():
+        df = station['measurements']
+        df['time'] = pd.to_datetime(df['time'])
+
+        # Check if temperature is in df
+        if 'temperature' not in df.columns:
+            continue
+
+        # Get station altitude
+        altitude = station.get('altitude') or station.get('elevation')
+        if altitude is None:
+            continue
+
+        # Find the measurement closest to selected_datetime
+        time_diff = abs(df['time'] - selected_datetime)
+        min_diff_idx = time_diff.idxmin()
+        closest_measurement = df.loc[min_diff_idx]
+
+        temperature = closest_measurement['temperature']
+        if np.isnan(temperature):
+            continue
+        temperatures.append(temperature)
+        altitudes.append(altitude)
+        station_names.append(station_name)
+
+    if len(temperatures) == 0:
+        st.write("No temperature data available for the selected time.")
+        return
+
+    # Convert to numpy arrays
+    temperatures = np.array(temperatures)
+    altitudes = np.array(altitudes)
+
+    # Sort by altitude
+    sorted_indices = np.argsort(altitudes)
+    altitudes = altitudes[sorted_indices]
+    temperatures = temperatures[sorted_indices]
+    station_names = np.array(station_names)[sorted_indices]
+
+    # Plotting
+    fig, ax = plt.subplots(figsize=(6, 8))
+    ax.plot(temperatures, altitudes, 'o', label='Observed Temperature', markerfacecolor='blue', markersize=8)
+    
+    # Annotate each point with station name
+    for temp, alt, name in zip(temperatures, altitudes, station_names):
+        ax.annotate(name, (temp, alt), textcoords="offset points", xytext=(5,5), ha='left')
+    # Smooth line through the observed temperatures using spline interpolation
+
+    import scipy.interpolate
+    if len(temperatures) > 2:  # Requires at least three points for spline
+        spline = scipy.interpolate.UnivariateSpline(altitudes, temperatures, k=1, s=5)
+        altitude_smooth = np.linspace(altitudes[0], altitudes[-1], 50)
+        temperature_smooth = spline(altitude_smooth)
+        ax.plot(temperature_smooth, altitude_smooth, '-', color='red', label='Smoothed Temperature Curve')
+
+    # Compute DALR line
+    # Build reference DALR line around zero degrees at surface
+    Gamma_d = 0.0098  # degC per meter
+    Altitude_dalr = np.linspace(0, altitudes[-1], 10)
+    Temperature_dalr = 0 - Gamma_d * (Altitude_dalr - 0)
+
+
+    # Offset the DALR line to cover the full temperature range
+    x_min, x_max = ax.get_xlim()
+    min_offset = min(-0, x_min)
+    max_offset = max(10, x_max+10)
+    offsets = np.arange(min_offset,max_offset, 5)  # Generates offsets from -10°C to +10°C with 5-degree spacing
+    # Plot multiple DALR lines with different offsets
+    for offset in offsets:
+        Temperature_dalr_offset = Temperature_dalr + offset
+        ax.plot(Temperature_dalr_offset, Altitude_dalr, '--', color='grey', alpha=0.3) 
+    # Add label
+    ax.plot([], [], '--', color='grey', alpha=0.5, label='Dry Adiabatic Lapse Rate')
+
+    ax.set_xlim(x_min, x_max) # reset to original limits before plotting DALR lines
+    ax.set_xlabel('Temperature (°C)')
+    ax.set_ylabel('Altitude (m)')
+    ax.set_title(f'Sounding at {selected_datetime}')
+    ax.grid()
+    ax.legend()
+    st.pyplot(fig)
+
 if __name__ == "__main__":
     st.set_page_config(
         page_title="Flysogn",
@@ -360,18 +473,19 @@ if __name__ == "__main__":
             'About': "Made by Simen Eide on his spare time when he should have been out in the sun."
             }
         )
+    if not hasattr(st, 'data'):
+        with st.spinner('Wait for it...'):
+            st.weather_data = utils.get_weather_measurements()
 
     # start ogn collector
     if not hasattr(st, 'client_started'):
         collect_ogn.start_client()
         st.client_started = True
 
-    if not hasattr(st, 'data'):
-        with st.spinner('Wait for it...'):
-            st.weather_data = utils.get_weather_measurements()
+
 
     # Create tabs
-    tab_livemap, tab_history, tab_livetrack, tab_windy, tab_holfuy, live_pilot_list = st.tabs(["Live map", "Historical weather", "Puretrack","Windy", "holfuy", "Live pilot list"])
+    tab_livemap,tab_sounding, tab_history, tab_livetrack, tab_windy, tab_holfuy, live_pilot_list = st.tabs(["Live map", "Live sounding", "Historical weather", "Puretrack","Windy", "holfuy", "Live pilot list"])
 
     # Make folio map width response:
     # https://github.com/gee-community/geemap/issues/713
@@ -399,8 +513,9 @@ if __name__ == "__main__":
         show_windy()
     with tab_holfuy:
         show_holfuy_widgets()
-    #with tab_forecast:
-    #    vestavind.show_forecast()
+    with tab_sounding:
+        plot_sounding(st.weather_data)
+    
     
     url = "https://www.xcontest.org/world/en/flights-search/?list[sort]=pts&filter[point]=7.103548%2061.345346&filter[radius]=45196&filter[mode]=CROSS&filter[date_mode]=dmy&filter[date]=&filter[value_mode]=dst&filter[min_value_dst]=&filter[catg]=&filter[route_types]=&filter[avg]=&filter[pilot]="
     st.markdown(f"""
@@ -412,4 +527,3 @@ Site is "best effort maintained" by [Simen Eide](https://www.instagram.com/simen
     
     # Update live weather data in the background
     st.weather_data = utils.get_weather_measurements()
-# %%
