@@ -51,14 +51,15 @@ def create_wind_chart(wind_chart_data, station_name):
     wind_chart_data['time'] = pd.to_datetime(wind_chart_data['time'], utc=True).dt.tz_convert('CET')
     now = pd.Timestamp(datetime.datetime.now(), tz='CET')
     wind_chart_data = wind_chart_data[wind_chart_data['time'] >= now - pd.Timedelta(hours=6)]
-    print(station_name)
     wind_chart_data = wind_chart_data.groupby('time', as_index=False).first()
+
 
     wind_chart_data = (
         wind_chart_data
         .set_index('time')
         .resample('15min')
         .ffill()
+        .infer_objects(copy=False)
         .interpolate()
         .reset_index(drop=False)
     )
@@ -266,7 +267,12 @@ def plot_wind_data(df_dict, selected_stations, data_type, yaxis_title, lookback_
         df.set_index('time', inplace=True)
 
         # Resample and interpolate data to be every 15 minutes
-        df = df.resample('15min').interpolate()
+        df = (
+            df
+            .infer_objects(copy=False)
+            .resample('15min')
+            .interpolate()
+        )
 
         # Filter data based on lookback period
         min_time = df.index.max() - pd.Timedelta(hours=lookback_hours)
