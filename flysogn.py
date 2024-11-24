@@ -51,8 +51,17 @@ def create_wind_chart(wind_chart_data, station_name):
     wind_chart_data['time'] = pd.to_datetime(wind_chart_data['time'], utc=True).dt.tz_convert('CET')
     now = pd.Timestamp(datetime.datetime.now(), tz='CET')
     wind_chart_data = wind_chart_data[wind_chart_data['time'] >= now - pd.Timedelta(hours=6)]
+    print(station_name)
+    wind_chart_data = wind_chart_data.groupby('time', as_index=False).first()
 
-    wind_chart_data = wind_chart_data.set_index('time').resample('15min').ffill().interpolate().reset_index(drop=False)
+    wind_chart_data = (
+        wind_chart_data
+        .set_index('time')
+        .resample('15min')
+        .ffill()
+        .interpolate()
+        .reset_index(drop=False)
+    )
 
     # Calculate min and max time for the full 24-hour span
     min_time = wind_chart_data['time'].min()
@@ -151,7 +160,9 @@ def interpolate_color(wind_speed, thresholds=[2, 8, 14], colors=['white', 'green
     return to_hex(cmap(np.clip(norm_wind_speed, 0, 1)))
 
 def build_live_map(data):
-
+    """
+    data = st.weather_data
+    """
     # Create a Folium map
     m = folium.Map(location=[61.26, 7.1195861], zoom_start=10, width='100%', height='100%')
     # Add wind direction arrows to the map
@@ -465,6 +476,8 @@ def plot_sounding(data):
     ax.grid()
     ax.legend()
     st.pyplot(fig)
+
+
 
 if __name__ == "__main__":
     st.set_page_config(
