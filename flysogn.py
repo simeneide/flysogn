@@ -446,7 +446,7 @@ def plot_sounding(data):
     x_min, x_max = ax.get_xlim()
     min_offset = min(-0, x_min)
     max_offset = max(10, x_max+10)
-    offsets = np.arange(min_offset,max_offset, 2.5)  # Generates offsets from -10°C to +10°C with 5-degree spacing
+    offsets = np.arange(min_offset,max_offset, 1)  # Generates offsets from -10°C to +10°C with 5-degree spacing
     # Plot multiple DALR lines with different offsets
     for offset in offsets:
         Temperature_dalr_offset = Temperature_dalr + offset
