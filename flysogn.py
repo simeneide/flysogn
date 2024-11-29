@@ -52,6 +52,8 @@ def create_wind_chart(wind_chart_data, station_name):
     now = pd.Timestamp(datetime.datetime.now(), tz='CET')
     wind_chart_data = wind_chart_data[wind_chart_data['time'] >= now - pd.Timedelta(hours=6)]
     wind_chart_data = wind_chart_data.groupby('time', as_index=False).first()
+    if wind_chart_data.empty:
+        return None
 
 
     wind_chart_data = (
@@ -182,7 +184,8 @@ def build_live_map(data):
         # Prepare time-series wind data for Vega chart
         wind_chart_data = station['measurements']
         wind_chart = create_wind_chart(wind_chart_data, station_name)
-
+        if wind_chart is None:
+            continue
         # Add the arrow to the map
         folium.Marker(
             [station['lat'], station['lon']],
