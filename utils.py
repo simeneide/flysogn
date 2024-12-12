@@ -134,9 +134,12 @@ def get_weather_measurements(lookback=24):
         output[key] = val
 
     # Anestølen and flatbreen
-    nve_stations = nve_utils.get_flatbre_data(days=lookback/24)
-    for key, val in nve_stations.items():
-        output[key] = val
+    try:
+        nve_stations = nve_utils.get_flatbre_data(days=lookback/24)
+        for key, val in nve_stations.items():
+            output[key] = val
+    except Exception as e:
+        print(f"Error fetching nve data. error: {e}")
     ### Ecowitt
     output['Barten'] = get_historical_ecowitt(lookback=lookback)
     ### HOLFUY
