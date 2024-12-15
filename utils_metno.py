@@ -28,7 +28,7 @@ def fetch_metno_station(lookback=7):
     use_ids = ['SN55000','SN55709']
     met_no_sources = sources[sources['id'].isin(use_ids)].to_dict(orient='records')
 
-    sources_use = sources[sources['municipality'].isin(["SOGNDAL", "LUSTER"])]
+    sources_use = sources[sources['municipality'].isin(["SOGNDAL", "LUSTER","VIK"])]
     stations_df = sources_use[['id','shortName','masl','longitude','latitude']]
     #%%
     # Get temperature data for stations
