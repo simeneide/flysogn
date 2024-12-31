@@ -141,7 +141,11 @@ def get_weather_measurements(lookback=24):
     except Exception as e:
         print(f"Error fetching nve data. error: {e}")
     ### Ecowitt
-    output['Barten'] = get_historical_ecowitt(lookback=lookback)
+    try:
+        output['Barten'] = get_historical_ecowitt(lookback=lookback)
+    except:
+        Warnings.warn("Could not get ecowitt data")
+        pass
     ### HOLFUY
     stations = [
         {
