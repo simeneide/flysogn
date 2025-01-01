@@ -144,7 +144,7 @@ def get_weather_measurements(lookback=24):
     try:
         output['Barten'] = get_historical_ecowitt(lookback=lookback)
     except:
-        Warnings.warn("Could not get ecowitt data")
+        print("Could not get ecowitt data")
         pass
     ### HOLFUY
     stations = [
