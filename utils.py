@@ -3,7 +3,7 @@ import requests
 import streamlit as st
 from metar import Metar
 import pandas as pd
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import numpy as np
 import json
 import nve_utils
@@ -61,6 +61,58 @@ from ecowitt_net_get import ecowitt_get_history, ecowitt_get_realtime
 # wind_gust: m/s
 # temperatuere: C (optional)
 # battery: % (optional)
+
+def get_wundermap_data(station_id, lookback=24):
+    """
+    lookback=24 # hrs
+    """
+    url = f"https://api.weather.com/v2/pws/observations/all/1day?stationId={station_id}&format=json&units=m&apiKey={st.secrets['wundermap_api_key']}"
+    data = json.loads(requests.get(url).content)
+    # filter observations for the requested lookback period (in hours)
+    now = datetime.now(timezone.utc)
+    start_time = now - timedelta(hours=lookback)
+    
+    recs = []
+    for obs in data.get("observations", []):
+        # Convert observation time to a datetime object.
+        # The sample uses 'obsTimeUtc' in ISO-8601 format.
+        obs_time = pd.to_datetime(obs["obsTimeUtc"])
+        if obs_time < start_time:
+            continue
+        
+        # Build a record from fields in the observation.
+        record = {
+            "time": obs_time,
+            "wind_speed": obs["metric"].get("windspeedAvg"),
+            "wind_direction": obs.get("winddirAvg"),  # sometimes provided at top level
+            "wind_gust": obs["metric"].get("windgustAvg"),
+            "temperature": obs["metric"].get("tempAvg"),
+            "pressure": obs["metric"].get("pressureMax")  # you can choose a different pressure stat if needed
+        }
+        recs.append(record)
+    
+    # Convert list of records to a Pandas DataFrame
+    df = pd.DataFrame(recs).sort_values("time", ascending=False).reset_index(drop=True)
+    
+    # Extract station metadata using first (most recent) observation.
+    if data.get("observations"):
+        first_obs = data["observations"][0]
+        station_lat = first_obs.get("lat")
+        station_lon = first_obs.get("lon")
+        station_name = first_obs.get("stationID", "Wundermap Station")
+    else:
+        station_lat = station_lon = station_name = None
+
+    # Construct the output dictionary in the same format as the other data files.
+    station_data = {
+        "lat": station_lat,
+        "lon": station_lon,
+        "altitude": None,  # Not provided by wundermap data (adjust if available)
+        "name": station_name,
+        "measurements": df
+    }
+    return station_data
+
 
 def get_historical_ecowitt(lookback=24):
     variables = ['outdoor.temperature', 'wind.wind_speed', 'wind.wind_gust', 'wind.wind_direction']
@@ -128,6 +180,14 @@ def get_weather_measurements(lookback=24):
     ### Storhogen
     output['Storhogen'] = get_storhogen_data()
 
+    # wundermap
+    stations = ["ISOGND2", "ISOGND1","ISOLVO1", "IHYHEI1", "ILUSTE5"]
+    for station_id in stations:
+        try:
+            output[station_id] = get_wundermap_data(station_id, lookback=lookback)
+        except:
+            print(f"Could not get wundermap data for station {station_id}")
+            pass
     ## METNO
     metno_stations = fetch_metno_station(lookback=int(lookback/24))
     for key, val in metno_stations.items():

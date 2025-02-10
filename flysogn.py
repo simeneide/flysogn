@@ -10,7 +10,6 @@ from folium.features import DivIcon
 import matplotlib.pyplot as plt
 from streamlit_folium import folium_static
 from matplotlib.colors import to_hex, LinearSegmentedColormap
-from windrose import WindroseAxes
 import collect_ogn
 import datetime
 import altair as alt
