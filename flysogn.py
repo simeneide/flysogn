@@ -47,7 +47,6 @@ def create_arrow_icon(wind_speed, wind_gust, angle, max_wind_speed=20):
     return DivIcon(icon_size=(size * 2, size), icon_anchor=(size, size // 2), html=arrow_html)
 
 def create_wind_chart(wind_chart_data, station_name):
-    wind_chart_data['time'] = pd.to_datetime(wind_chart_data['time'], utc=True).dt.tz_convert('CET')
     now = pd.Timestamp(datetime.datetime.now(), tz='CET')
     wind_chart_data = wind_chart_data[wind_chart_data['time'] >= now - pd.Timedelta(hours=6)]
     wind_chart_data = wind_chart_data.groupby('time', as_index=False).first()
@@ -176,6 +175,8 @@ def build_live_map(data):
         wind_speed = latest_measurement['wind_speed']
         wind_direction = latest_measurement['wind_direction']
         wind_gust = latest_measurement.get('wind_gust')
+        if np.isnan(wind_speed):
+            continue
 
         # Create an arrow icon
         arrow_icon = create_arrow_icon(wind_speed, wind_gust, wind_direction)
@@ -264,7 +265,6 @@ def plot_wind_data(df_dict, selected_stations, data_type, yaxis_title, lookback_
 
     for i, station in enumerate(selected_stations):
         df = df_dict[station]['measurements']
-        df['time'] = pd.to_datetime(df['time'])
         df = df.sort_values('time')
         df.set_index('time', inplace=True)
 
@@ -381,8 +381,6 @@ def plot_sounding(data):
     for station_name, station in data.items():
         df = station['measurements']
         # Ensure the time column is datetime with timezone and convert to UTC
-        df['time'] = pd.to_datetime(df['time'], errors='coerce')
-        df['time'] = df['time'].dt.tz_convert('UTC')  # Convert to UTC
         times.extend(df['time'])
 
     times = pd.to_datetime(times, utc=True)  # Ensure that the list handles timezone as UTC
@@ -398,6 +396,8 @@ def plot_sounding(data):
         format="YYYY-MM-DD HH:mm:ss",
         step=datetime.timedelta(minutes=15),
     )
+    selected_datetime = selected_datetime.replace(tzinfo=datetime.timezone.utc)
+    
 
     temperatures = []
     altitudes = []
@@ -405,7 +405,6 @@ def plot_sounding(data):
 
     for station_name, station in data.items():
         df = station['measurements']
-        df['time'] = pd.to_datetime(df['time'])
 
         # Check if temperature is in df
         if 'temperature' not in df.columns:
@@ -416,7 +415,7 @@ def plot_sounding(data):
         if altitude is None:
             continue
 
-        # Find the measurement closest to selected_datetime
+        # Find the measurement closest to selected_datetime        
         time_diff = abs(df['time'] - selected_datetime)
         min_diff_idx = time_diff.idxmin()
         closest_measurement = df.loc[min_diff_idx]
@@ -529,6 +528,8 @@ if __name__ == "__main__":
         build_live_map(st.weather_data)
     with tab_sounding:
         plot_sounding(st.weather_data)
+    
+    utils.write_weather_measurements_to_db(lookback=72)
     with live_pilot_list:
         st.subheader("Latest aircraft positions")
         st.dataframe(st.latest_pos)

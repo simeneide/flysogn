@@ -10,6 +10,8 @@ import nve_utils
 import pandas as pd
 from ecowitt_net_get import ecowitt_get_history, ecowitt_get_realtime
 from utils_metno import fetch_metno_station
+import db_utils
+import polars as pl
 #%%
 def get_storhogen_data():
     url_metar = "https://api.met.no/weatherapi/tafmetar/1.0/metar.txt?icao=ENSG"
@@ -171,9 +173,28 @@ def collect_holfuy_data(station):
     return station
 
 
+def get_weather_measurements(lookback=24):
+    """
+    lookback=24 # hrs
+    """
+    con = db_utils.Database()
+    stations = con.read("SELECT * FROM weather_stations").to_dicts()
+    lookback_time = datetime.now() - timedelta(hours=lookback)
+    lookback_time_str = lookback_time.strftime("%Y-%m-%d %H:%M:%S")
+    measurements = (
+        con.read(f"SELECT * FROM weather_measurements where time > '{lookback_time_str}'")
+        .with_columns(pl.col('time').dt.convert_time_zone("CET"))
+    )
+    
+    output = {}
+    for station in stations:
+        station['measurements'] = measurements.filter(pl.col('name') == station['name']).to_pandas()
+        if len(station['measurements']) > 0:
+            output[station['name']] = station
+    return output
 
 @st.cache_data(ttl=180)
-def get_weather_measurements(lookback=24):
+def write_weather_measurements_to_db(lookback=72):
     """
     lookback=24 # hrs
     """
@@ -239,9 +260,40 @@ def get_weather_measurements(lookback=24):
             # print what is wrong
             pass
 
-    for key, val in output.items():
-        val['measurements'] = val['measurements'].sort_values('time', ascending=False).reset_index(drop=True)
-    return output
+    #%% # concat everything into a big dataframe
+    
+    measurement_data = []
+    station_data_list = []
+
+    for name, station_data in output.items():
+        df_station = (
+            pl.from_pandas(station_data['measurements'])
+            .with_columns(name=pl.lit(name))
+            .with_columns(pl.col('time').dt.convert_time_zone("CET"))
+        )
+        #print(df_station.head(2))
+        measurement_data.append(df_station)
+        sd = {k: v for k, v in station_data.items() if k != 'measurements'}
+        station_data_list.append(sd)
+    
+    df_measurements = pl.concat(measurement_data, how="diagonal_relaxed")
+    df_stations = pl.DataFrame(station_data_list)
+
+    # write to db
+    db = db_utils.Database()
+    success = db.write(df_measurements, "weather_measurements")
+    if success:
+        print(f"Successfully wrote {len(df_measurements)} measurements to db")
+    else:
+        print("Failed to write measurements to db")
+
+    success = db.write(df_stations, "weather_stations")
+    if success:
+        print(f"Successfully wrote {len(df_stations)} stations to db")
+    else:
+        print("Failed to write stations to db")
+    return True
 
 # %%
-
+if __name__ == "__main__":
+    write_weather_measurements_to_db(lookback=72)
