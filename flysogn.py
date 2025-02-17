@@ -529,7 +529,6 @@ if __name__ == "__main__":
     with tab_sounding:
         plot_sounding(st.weather_data)
     
-    utils.write_weather_measurements_to_db(lookback=72)
     with live_pilot_list:
         st.subheader("Latest aircraft positions")
         st.dataframe(st.latest_pos)
@@ -553,4 +552,4 @@ Sogn is in the end of the world's longest ice free fjord and a great place to fl
 Site is "best effort maintained" by [Simen Eide](https://www.instagram.com/simenfly/), code is available on [Github](https://github.com/simeneide/flysogn).""")
     
     # Update live weather data in the background
-    st.weather_data = utils.get_weather_measurements()
+    utils.write_weather_measurements_to_db(lookback=72)
