@@ -7,6 +7,9 @@ from datetime import datetime, timedelta, timezone
 import numpy as np
 import json
 import nve_utils
+import pandas as pd
+from ecowitt_net_get import ecowitt_get_history, ecowitt_get_realtime
+from utils_metno import fetch_metno_station
 #%%
 def get_storhogen_data():
     url_metar = "https://api.met.no/weatherapi/tafmetar/1.0/metar.txt?icao=ENSG"
@@ -51,8 +54,6 @@ def get_storhogen_data():
     }
     return output
 
-import pandas as pd
-from ecowitt_net_get import ecowitt_get_history, ecowitt_get_realtime
 
 # Output of each function is a dataframe with columns:
 # datetime object
@@ -169,7 +170,7 @@ def collect_holfuy_data(station):
 
     return station
 
-from utils_metno import fetch_metno_station
+
 
 @st.cache_data(ttl=180)
 def get_weather_measurements(lookback=24):
@@ -242,48 +243,5 @@ def get_weather_measurements(lookback=24):
         val['measurements'] = val['measurements'].sort_values('time', ascending=False).reset_index(drop=True)
     return output
 
-
-def collect_netatmo_data():
-    # use existing package to fix authentication of netatmo
-    import netatmo
-    ws = netatmo.WeatherStation( {
-            'client_id': st.secrets['netatmo_client_id'],
-            'client_secret': st.secrets['netatmo_client_secret'],
-            'username': st.secrets['netatmo_username'],
-            'password': st.secrets['netatmo_password'],
-            'device': st.secrets['netatmo_device']} )
-    ws.get_data()
-    # NETATMO
-    # lon / lat
-    coord_sw = [6.4635085,61.0616599]
-    coord_ne = [6.76,61.646145]
-
-    r = requests.get(f"https://api.netatmo.com/api/getpublicdata?lat_ne={coord_ne[1]}&lon_ne={coord_ne[0]}&lat_sw={coord_sw[1]}&lon_sw={coord_sw[0]}&required_data=wind&filter=true",  headers={'Authorization': f'Bearer {ws._access_token}'})
-    msg = json.loads(r.content)
-    if r.status_code!=200: 
-        print(r.content)
-    d = msg['body'][1]
-
-    ## Organize data into dataframe
-    data = []
-    for d in msg['body']:
-        obs = {}
-        obs['lat'] = d['place']['location'][1]
-        obs['lon'] = d['place']['location'][0]
-        obs['altitude'] = d['place']['altitude']
-        obs['name'] = f"netatmo-{d['place'].get('street')}"
-        data.append(obs)
-
-        for mac, observations in d['measures'].items():
-            if "wind_direction" in observations.keys():
-                if observations['wind_direction'] >= 0:
-                    for s in ['wind_direction','wind_speed','wind_timeutc','gust_strength']:
-                        obs[s] = observations[s]
-
-    df = pd.DataFrame(data).dropna()
-    df['hours_since_reading'] = np.round(df['wind_timeutc'].apply(lambda epoch: (datetime.utcnow()-datetime.utcfromtimestamp(epoch)).seconds/3600), 1)
-
-    df['s'] = np.sqrt(df['wind_speed'])/500
-    return df
 # %%
 

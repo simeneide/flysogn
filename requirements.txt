@@ -15,9 +15,7 @@ streamlit-folium
 windrose
 xarray
 siphon
-#netcdf4 # ==1.6.5
 scipy
 bottleneck
-google-cloud-storage
 streamlit_geolocation
 ogn-client
