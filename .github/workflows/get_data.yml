@@ -27,3 +27,7 @@ jobs:
               AIVEN_PASSWORD: ${{ secrets.AIVEN_PASSWORD }}
               AIVEN_HOST: ${{ secrets.AIVEN_HOST }}
               METNO_CLIENT_ID: ${{ secrets.METNO_CLIENT_ID }}
+              METNO_CLIENT_SECRET: ${{ secrets.METNO_CLIENT_SECRET }}
+              WUDERMAP_API_KEY: ${{ secrets.WUDERMAP_API_KEY }}
+              HOLFUY_SECRET: ${{ secrets.HOLFUY_SECRET }}
+              NVE_API_KEY: ${{ secrets.NVE_API_KEY }}
