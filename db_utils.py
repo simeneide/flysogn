@@ -17,11 +17,12 @@ def main():
 # Write table
 import polars as pl
 import streamlit as st
+st.secrets
 import os
 class Database:
     """ Simple wrapper around polars to read and write to aiven database """
 
-    uri = f'postgres://{st.secrets.get("aiven_user", os.environ['AIVEN_USER'])}:{st.secrets.get("aiven_password", os.environ['AIVEN_PASSWORD'])}@pg-weather-pg-weather.b.aivencloud.com:20910/defaultdb?sslmode=require'
+    uri = f'postgres://{os.environ['AIVEN_USER']}:{os.environ['AIVEN_PASSWORD']}@pg-weather-pg-weather.b.aivencloud.com:20910/defaultdb?sslmode=require'
     def __init__(self):
         pass
 
