@@ -2,6 +2,7 @@
 
 def main():
     import psycopg2
+    import os
     uri = f'postgres://{st.secrets["aiven_user"]}:{st.secrets["aiven_password"]}@pg-weather-pg-weather.b.aivencloud.com:20910/defaultdb?sslmode=require'
     conn = psycopg2.connect(uri)
 
@@ -16,10 +17,11 @@ def main():
 # Write table
 import polars as pl
 import streamlit as st
+import os
 class Database:
     """ Simple wrapper around polars to read and write to aiven database """
 
-    uri = f'postgres://{st.secrets["aiven_user"]}:{st.secrets["aiven_password"]}@pg-weather-pg-weather.b.aivencloud.com:20910/defaultdb?sslmode=require'
+    uri = f'postgres://{st.secrets.get("aiven_user", os.environ['aiven_user'])}:{st.secrets.get("aiven_password", os.environ['aiven_password'])}@pg-weather-pg-weather.b.aivencloud.com:20910/defaultdb?sslmode=require'
     def __init__(self):
         pass
 
