@@ -4,6 +4,7 @@ import requests
 import json
 import pandas as pd
 import streamlit as st
+import os
 # python nve_utils.py -a "8RK0Dwiz5U+x2t5WhMFHmg==" -s 12.209.0 -p 1000 -r 60 -t "2018-01-01T10:00:00/2018-01-14T20:00:00"
 # get parameters
 # response = requests.get("https://hydapi.nve.no/api/v1/Parameters", headers=request_headers)    

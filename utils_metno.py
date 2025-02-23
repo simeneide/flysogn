@@ -3,7 +3,7 @@ import requests
 import pandas as pd
 import streamlit as st
 from datetime import datetime, timedelta
-
+import os
 #%% Get sources
 def fetch_metno_station(lookback=7):
     """

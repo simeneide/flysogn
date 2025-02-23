@@ -12,6 +12,7 @@ from ecowitt_net_get import ecowitt_get_history, ecowitt_get_realtime
 from utils_metno import fetch_metno_station
 import db_utils
 import polars as pl
+import os
 #%%
 def get_storhogen_data():
     url_metar = "https://api.met.no/weatherapi/tafmetar/1.0/metar.txt?icao=ENSG"
