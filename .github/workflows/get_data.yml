@@ -31,3 +31,6 @@ jobs:
               WUDERMAP_API_KEY: ${{ secrets.WUDERMAP_API_KEY }}
               HOLFUY_SECRET: ${{ secrets.HOLFUY_SECRET }}
               NVE_API_KEY: ${{ secrets.NVE_API_KEY }}
+              ECOWITT_APPLICATION_KEY: ${{ secrets.ECOWITT_APPLICATION_KEY }}
+              ECOWITT_APIKEY: ${{ secrets.ECOWITT_APIKEY }}
+              ECOWITT_IMEI_STATION: ${{ secrets.ECOWITT_IMEI_STATION }}
