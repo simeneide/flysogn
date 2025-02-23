@@ -10,7 +10,7 @@ def fetch_metno_station(lookback=7):
     lookback=7 # days
     """
     endpoint = 'https://frost.met.no/sources/v0.jsonld'
-    r = requests.get(endpoint, auth=(st.secrets['metno_client_id'],''), headers={'Accept': 'application/json'})
+    r = requests.get(endpoint, auth=(os.environ['metno_client_id'],''), headers={'Accept': 'application/json'})
     sources = pd.DataFrame(r.json()['data'])
 
     ## 
@@ -48,7 +48,7 @@ def fetch_metno_station(lookback=7):
         'referencetime': referencetime,
     }
 
-    r = requests.get(endpoint, parameters, auth=(st.secrets['metno_client_id'],''))
+    r = requests.get(endpoint, parameters, auth=(os.environ['metno_client_id'],''))
     # Extract JSON data
     json = r.json()
     # Check if the request worked, print out any errors
