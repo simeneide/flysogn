@@ -42,7 +42,7 @@ def fetch_nve_data(station, days=7):
     # Example usage
     reference_time = get_reference_time()
     print(reference_time)
-    api_key = os.environ['nve_api_key']
+    api_key = os.environ['NVE_API_KEY']
 
     baseurl = "https://hydapi.nve.no/api/v1/Observations?StationId={station}&Parameter={parameter}&ResolutionTime={resolution_time}"
 

@@ -3,7 +3,7 @@
 def main():
     import psycopg2
     import os
-    uri = f'postgres://{st.secrets["aiven_user"]}:{st.secrets["aiven_password"]}@pg-weather-pg-weather.b.aivencloud.com:20910/defaultdb?sslmode=require'
+    uri = f'postgres://{os.environ['AIVEN_USER']}:{os.environ['AIVEN_PASSWORD']}@pg-weather-pg-weather.b.aivencloud.com:20910/defaultdb?sslmode=require'
     conn = psycopg2.connect(uri)
 
     query_sql = 'SELECT VERSION()'

@@ -72,7 +72,7 @@ def get_wundermap_data(station_id, lookback=24):
     """
     lookback=24 # hrs
     """
-    url = f"https://api.weather.com/v2/pws/observations/all/1day?stationId={station_id}&format=json&units=m&apiKey={os.environ['wundermap_api_key']}"
+    url = f"https://api.weather.com/v2/pws/observations/all/1day?stationId={station_id}&format=json&units=m&apiKey={os.environ['WUNDERMAP_API_KEY']}"
     data = json.loads(requests.get(url).content)
     # filter observations for the requested lookback period (in hours)
     now = datetime.now(timezone.utc)
@@ -154,8 +154,8 @@ def get_historical_ecowitt(lookback=24):
     return station
 
 def collect_holfuy_data(station):
-    #modva_raw = json.loads(requests.get(f"http://api.holfuy.com/live/?s={station['stationId']}&pw={os.environ['holfuy_secret']}=JSON&tu=C&su=m/s").content)
-    modva_hist = json.loads(requests.get(f"http://api.holfuy.com/archive/?s={station['stationId']}&pw={os.environ['holfuy_secret']}=JSON&tu=C&su=m/s&cnt=100&batt=true&type=1").content)
+    #modva_raw = json.loads(requests.get(f"http://api.holfuy.com/live/?s={station['stationId']}&pw={os.environ['HOLFUY_SECRET']}=JSON&tu=C&su=m/s").content)
+    modva_hist = json.loads(requests.get(f"http://api.holfuy.com/archive/?s={station['stationId']}&pw={os.environ['HOLFUY_SECRET']}=JSON&tu=C&su=m/s&cnt=100&batt=true&type=1").content)
     df = pd.DataFrame(modva_hist['measurements'])
     #    'wind': {'speed': 12.8, 'gust': 14.7, 'min': 10.6, 'direction': 199},
     # Expand the wind column:
