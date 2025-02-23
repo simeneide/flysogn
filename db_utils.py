@@ -21,7 +21,7 @@ import os
 class Database:
     """ Simple wrapper around polars to read and write to aiven database """
 
-    uri = f'postgres://{st.secrets.get("aiven_user", os.environ['aiven_user'])}:{st.secrets.get("aiven_password", os.environ['aiven_password'])}@pg-weather-pg-weather.b.aivencloud.com:20910/defaultdb?sslmode=require'
+    uri = f'postgres://{st.secrets.get("aiven_user", os.environ['AIVEN_USER'])}:{st.secrets.get("aiven_password", os.environ['AIVEN_PASSWORD'])}@pg-weather-pg-weather.b.aivencloud.com:20910/defaultdb?sslmode=require'
     def __init__(self):
         pass
 

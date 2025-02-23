@@ -22,3 +22,7 @@ jobs:
       - name: Run data fetch
         # For example, using `pytest`
         run: uv run python utils.py
+        env: # Set the secret as an input
+              AIVEN_USER: ${{ secrets.AIVEN_USER }}
+              AIVEN_PASSWORD: ${{ secrets.AIVEN_PASSWORD }}
+              AIVEN_HOST: ${{ secrets.AIVEN_HOST }}
