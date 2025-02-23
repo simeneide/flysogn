@@ -26,3 +26,4 @@ jobs:
               AIVEN_USER: ${{ secrets.AIVEN_USER }}
               AIVEN_PASSWORD: ${{ secrets.AIVEN_PASSWORD }}
               AIVEN_HOST: ${{ secrets.AIVEN_HOST }}
+              METNO_CLIENT_ID: ${{ secrets.METNO_CLIENT_ID }}
