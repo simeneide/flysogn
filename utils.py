@@ -1,6 +1,8 @@
 #%%
 import requests
 import streamlit as st
+# Add secrets to env
+st.secrets
 from metar import Metar
 import pandas as pd
 from datetime import datetime, timedelta, timezone

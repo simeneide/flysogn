@@ -2,6 +2,8 @@
 import requests
 import pandas as pd
 import streamlit as st
+# Add secrets to env
+st.secrets
 from datetime import datetime, timedelta
 import os
 #%% Get sources
