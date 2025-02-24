@@ -188,7 +188,7 @@ def get_weather_measurements(lookback=24):
     lookback_time_str = lookback_time.strftime("%Y-%m-%d %H:%M:%S")
     measurements = (
         con.read(f"SELECT * FROM weather_measurements where time > '{lookback_time_str}'")
-        .with_columns(pl.col('time').dt.convert_time_zone("CET"))
+        .with_columns(pl.col('time').cast(pl.Datetime("ns", time_zone="CET")))
     )
     
     output = {}
@@ -231,7 +231,7 @@ def write_weather_measurements_to_db(lookback=72):
     try:
         output['Barten'] = get_historical_ecowitt(lookback=lookback)
     except Exception as e:
-        print("Could not get ecowitt data: {e}")
+        print(f"Could not get ecowitt data: {e}")
         pass
     ### HOLFUY
     stations = [
@@ -265,7 +265,7 @@ def write_weather_measurements_to_db(lookback=72):
             # print what is wrong
             pass
 
-    #%% # concat everything into a big dataframe
+    ## concat everything into a big dataframe
     
     measurement_data = []
     station_data_list = []
@@ -281,18 +281,31 @@ def write_weather_measurements_to_db(lookback=72):
         sd = {k: v for k, v in station_data.items() if k != 'measurements'}
         station_data_list.append(sd)
     
-    df_measurements = pl.concat(measurement_data, how="diagonal_relaxed")
+    df_measurements = (
+        pl.concat(measurement_data, how="diagonal_relaxed")
+        .with_columns(pl.col('time').cast(pl.Datetime("us", time_zone="CET")))
+    )
     df_stations = pl.DataFrame(station_data_list)
 
     # write to db
     db = db_utils.Database()
-    success = db.write(df_measurements, "weather_measurements")
+    # write new observations to db
+    columns_to_save = ['time', 'name', 'wind_direction','wind_speed', 'wind_gust', 'temperature']
+    existing_df = (
+        db.read(f"SELECT {', '.join(columns_to_save)} FROM weather_measurements")
+        .with_columns(pl.col('time').cast(pl.Datetime("us", time_zone="CET")))
+    )
+    unique_columns=["time", "name"]
+    combined = df_measurements.select(columns_to_save).join(existing_df, on=unique_columns, how="anti")
+    print(combined)
+
+    success = db.write(combined, "weather_measurements", "append")
     if success:
-        print(f"Successfully wrote {len(df_measurements)} measurements to db")
+        print(f"Successfully wrote {len(combined)} measurements to db")
     else:
         print("Failed to write measurements to db")
 
-    success = db.write(df_stations, "weather_stations")
+    success = db.write(df_stations, "weather_stations", if_table_exists="replace")
     if success:
         print(f"Successfully wrote {len(df_stations)} stations to db")
     else:

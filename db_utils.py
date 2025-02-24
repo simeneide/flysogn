@@ -2,7 +2,8 @@
 # Write table
 import polars as pl
 import streamlit as st
-st.secrets
+from dotenv import load_dotenv
+load_dotenv(".envrc")
 import os
 
 def main():
@@ -28,12 +29,16 @@ class Database:
         pass
 
     def read(self, query):
+        """
+        query = "SELECT * FROM weather_stations"
+        query = "SELECT * FROM weather_measurements"
+        """
         
         df = pl.read_database_uri(query=query, uri=self.uri, engine="adbc")
         return df
 
-    def write(self, df : pl.DataFrame, table_name):
-        df.write_database(table_name=table_name, connection=self.uri, engine="adbc", if_table_exists="replace")
+    def write(self, df : pl.DataFrame, table_name, if_table_exists="append"):
+        df.write_database(table_name=table_name, connection=self.uri, engine="adbc", if_table_exists=if_table_exists)
         return True
 
 if __name__ == "__main__":
