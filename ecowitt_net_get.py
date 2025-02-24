@@ -2,6 +2,8 @@
 import requests
 from datetime import datetime
 import streamlit as st
+st.secrets
+import os
 UnitsEcowitt = '&temp_unitid=1&pressure_unitid=3&wind_speed_unitid=6&rainfall_unitid=12&solar_irradiance_unitid=16'
 KEY_SEPARATOR = '.'
 
@@ -85,7 +87,7 @@ def ecowitt_get_realtime(call_back: str = 'all', units: str = UnitsEcowitt) -> d
     :return: flatten dict or partial flatten dict
     """
     try:
-        HTTPS_Ecowitt_REALTIME = f'https://api.ecowitt.net/api/v3/device/real_time?application_key={st.secrets["ecowitt_ApplicationKey"]}&api_key={st.secrets["ecowitt_ApiKey"]}&imei={st.secrets["ecowitt_IMEI_station"]}&call_back=' # mac={MAC_station}&
+        HTTPS_Ecowitt_REALTIME = f'https://api.ecowitt.net/api/v3/device/real_time?application_key={os.environ['ECOWITT_APPLICATIONKEY']}&api_key={os.environ['ECOWITT_APIKEY']}&imei={os.environ['ECOWITT_IMEI_STATION']}&call_back=' # mac={MAC_station}&
         resp = requests.get(HTTPS_Ecowitt_REALTIME + call_back + units, timeout=80)
         return _response_realtime_to_dict(resp)
     except requests.exceptions.RequestException as err:
@@ -108,7 +110,7 @@ def ecowitt_get_history(start_date: datetime, end_date: datetime, call_back: str
         :rtype: dict
         """
     try:
-        HTTPS_Ecowitt_HISTORY = f"https://api.ecowitt.net/api/v3/device/history?application_key={st.secrets['ecowitt_ApplicationKey']}&api_key={st.secrets['ecowitt_ApiKey']}&imei={st.secrets['ecowitt_IMEI_station']}&call_back="
+        HTTPS_Ecowitt_HISTORY = f"https://api.ecowitt.net/api/v3/device/history?application_key={os.environ['ECOWITT_APPLICATIONKEY']}&api_key={os.environ['ECOWITT_APIKEY']}&imei={os.environ['ECOWITT_IMEI_STATION']}&call_back="
         
         timespan = '&start_date='+start_date.strftime('%Y-%m-%d %H:%M:%S')+'&end_date='+end_date.strftime('%Y-%m-%d %H:%M:%S')
         cycletype = f'&cycle_type={cycle_type}'
