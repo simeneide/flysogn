@@ -212,8 +212,8 @@ def write_weather_measurements_to_db(lookback=72):
     for station_id in stations:
         try:
             output[station_id] = get_wundermap_data(station_id, lookback=lookback)
-        except:
-            print(f"Could not get wundermap data for station {station_id}")
+        except Exception as e:
+            print(f"Could not get wundermap data for station {station_id}: {e}")
             pass
     ## METNO
     metno_stations = fetch_metno_station(lookback=int(lookback/24))
@@ -230,8 +230,8 @@ def write_weather_measurements_to_db(lookback=72):
     ### Ecowitt
     try:
         output['Barten'] = get_historical_ecowitt(lookback=lookback)
-    except:
-        print("Could not get ecowitt data")
+    except Exception as e:
+        print("Could not get ecowitt data: {e}")
         pass
     ### HOLFUY
     stations = [
