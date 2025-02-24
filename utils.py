@@ -2,7 +2,8 @@
 import requests
 import streamlit as st
 # Add secrets to env
-st.secrets
+from dotenv import load_dotenv
+load_dotenv("./.envrc")
 from metar import Metar
 import pandas as pd
 from datetime import datetime, timedelta, timezone
@@ -71,6 +72,7 @@ def get_storhogen_data():
 def get_wundermap_data(station_id, lookback=24):
     """
     lookback=24 # hrs
+    station_id = "ISOGND2"
     """
     url = f"https://api.weather.com/v2/pws/observations/all/1day?stationId={station_id}&format=json&units=m&apiKey={os.environ['WUNDERMAP_API_KEY']}"
     data = json.loads(requests.get(url).content)

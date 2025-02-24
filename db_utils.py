@@ -1,4 +1,9 @@
 #%%
+# Write table
+import polars as pl
+import streamlit as st
+st.secrets
+import os
 
 def main():
     import psycopg2
@@ -14,11 +19,7 @@ def main():
     version = cur.fetchone()[0]
     print(version)
 
-# Write table
-import polars as pl
-import streamlit as st
-st.secrets
-import os
+
 class Database:
     """ Simple wrapper around polars to read and write to aiven database """
 
@@ -27,6 +28,7 @@ class Database:
         pass
 
     def read(self, query):
+        
         df = pl.read_database_uri(query=query, uri=self.uri, engine="adbc")
         return df
 
