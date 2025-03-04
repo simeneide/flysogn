@@ -165,8 +165,10 @@ def build_live_map(stations, measurements):
     Build a live map using st.stations and st.measurements.
     
     Parameters:
-        stations (list[dict]): A list (or dict) of station information. Each station dict should contain at least 'name', 'lat', and 'lon'.
-        measurements (pl.DataFrame): A Polars DataFrame with weather measurements having a 'name' column that matches stations.
+        stations (list[dict]): A list (or dict) of station information. Each station dict 
+                               should contain at least 'name', 'lat', and 'lon'.
+        measurements (pl.DataFrame): A Polars DataFrame with weather measurements having 
+                                     a 'name' column that matches stations.
         
     Returns:
         folium_static map object.
@@ -174,7 +176,52 @@ def build_live_map(stations, measurements):
     # Create a Folium map
     m = folium.Map(location=[61.26, 7.1195861], zoom_start=10, width='100%', height='100%')
     
-    # Iterate over stations
+    # Add webcam markers using a smaller DivIcon so that they're in the background
+    webcams = [
+        {
+            'name': "Sogn skisenter parkering",
+            'url': "http://sognskisenter.org/webkam/parkering/image.jpg",
+            'latitude': 61.335706,
+            'longitude': 7.217362,
+        },
+        {
+            'name': "Rødekorshytta",
+            'url': "http://sognskisenter.org/webkam/rodekorshytta/image.jpg",
+            'latitude': 61.342406,
+            'longitude': 7.184607,
+        },
+        {
+            'name': "Sogn skisenter Mast 16",
+            'url': "http://sognskisenter.org/webkam/mast16/image.jpg",
+            'latitude': 61.339414,
+            'longitude': 7.193114,
+        },
+        {
+            'name': "Rindabotn",
+            'url': "https://cdn.norwaylive.tv/snapshots/6637b019-aeab-4a45-b671-f1f9bae39d09/kam1utsnitt2.jpg",
+            'latitude': 61.289154,
+            'longitude': 6.967829
+        },
+        {
+            'name': "Turtagrø",
+            'url': "https://turtagro.no/images/image_00001.jpg",
+            'latitude': 61.5043928,
+            'longitude': 7.8012656
+        }
+    ]
+    for webcam in webcams:
+        webcam_icon = folium.DivIcon(
+            html='<div style="font-size:12px; color:green;">📷</div>',
+            icon_size=(24, 24),
+            icon_anchor=(12, 12)
+        )
+        folium.Marker(
+            [webcam['latitude'], webcam['longitude']],
+            icon=webcam_icon,
+            popup=folium.Popup(f'<img src="{webcam["url"]}" alt="Webcam Image" width="300">', max_width=300)
+        ).add_to(m)
+    
+    # Add station markers with weather arrows above the webcam markers 
     for station in stations:
         # Filter measurements for this station using polars filtering then convert to pandas
         station_measurements = (
@@ -209,7 +256,7 @@ def build_live_map(stations, measurements):
             popup=folium.Popup(max_width=460).add_child(folium.VegaLite(wind_chart))
         ).add_to(m)
 
-    # Display latest positions of aircraft from st.latest_pos (unchanged)
+    # Add aircraft markers (unchanged)
     for aircraft, pos in st.latest_pos.items():
         # Plot only aircraft updated the last 4 hours
         if (datetime.datetime.now() - pos['timestamp']).seconds < 3600 * 4:
@@ -227,46 +274,6 @@ def build_live_map(stations, measurements):
                 icon=icon,
                 popup=f"<b>{aircraft}</b> altitude: {pos['altitude']:.0f} mas timestamp: {pos['timestamp']}"
             ).add_to(m)
-
-    # Add webcam markers
-    webcams = [
-        {
-            'name': "Sogn skisenter parkering",
-            'url': "http://sognskisenter.org/webkam/parkering/image.jpg",
-            'latitude': 61.335706,
-            'longitude': 7.217362,
-        },
-        {
-            'name': "Rødekorshytta",
-            'url': "http://sognskisenter.org/webkam/rodekorshytta/image.jpg",
-            'latitude': 61.342406,
-            'longitude': 7.184607,
-        },
-        {
-            'name': "Sogn skisenter Mast 16",
-            'url': "http://sognskisenter.org/webkam/mast16/image.jpg",
-            'latitude': 61.339414,
-            'longitude': 7.193114,
-        },
-        {
-            'name': "Rindabotn",
-            'url': "https://cdn.norwaylive.tv/snapshots/6637b019-aeab-4a45-b671-f1f9bae39d09/kam1utsnitt2.jpg",
-            'latitude': 61.289154,
-            'longitude': 6.967829
-        },
-        {
-            'name': "Turtagrø",
-            'url': "https://turtagro.no/images/image_00001.jpg",
-            'latitude': 61.5043928,
-            'longitude': 7.8012656
-        }
-    ]
-    for webcam in webcams:
-        folium.Marker(
-            [webcam['latitude'], webcam['longitude']],
-            icon=folium.Icon(icon='camera', color='green'),
-            popup=folium.Popup(f'<img src="{webcam["url"]}" alt="Webcam Image" width="300">', max_width=300)
-        ).add_to(m)
 
     return folium_static(m)
 
