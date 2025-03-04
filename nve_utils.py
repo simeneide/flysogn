@@ -33,7 +33,10 @@ def get_reference_time(days=7):
 
 
 def fetch_nve_data(station, days=7):
-    #station="78.19.0"
+    """
+    station="78.19.0"
+    days = 1
+    """
     parameter="14,15,17"
     resolution_time="0"
     #reference_time="2018-01-01T10:00:00/2018-01-14T20:00:00"
@@ -73,6 +76,9 @@ def fetch_nve_data(station, days=7):
         #    continue
         parameter_name = entry['parameterNameEng']
         observations = entry['observations']
+        if len(observations) == 0:
+            print(f"in fetch_nve_data(): empty observations for station {station}. skipping..")
+            continue
         
         # Create a DataFrame for the observations
         df = pd.DataFrame(observations)
@@ -102,6 +108,7 @@ def fetch_nve_data(station, days=7):
 def get_flatbre_data(days=7):
     """
     days=7
+    station = stations['Anestølen']
     """
    
     stations = {'Anestølen' : 

@@ -210,9 +210,12 @@ def write_weather_measurements_to_db(lookback=72):
             print(f"Could not get wundermap data for station {station_id}: {e}")
             pass
     ## METNO
-    metno_stations = fetch_metno_station(lookback=int(lookback/24))
-    for key, val in metno_stations.items():
-        output[key] = val
+    try:
+        metno_stations = fetch_metno_station(lookback=int(lookback/24))
+        for key, val in metno_stations.items():
+            output[key] = val
+    except Exception as e:
+        print(f"Error fetching met.no data. error: {e}")
 
     # Anestølen and flatbreen
     try:
