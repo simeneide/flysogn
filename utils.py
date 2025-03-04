@@ -190,13 +190,7 @@ def get_weather_measurements(lookback=24):
         con.read(f"SELECT * FROM weather_measurements where time > '{lookback_time_str}'")
         .with_columns(pl.col('time').cast(pl.Datetime("ns", time_zone="CET")))
     )
-    
-    output = {}
-    for station in stations:
-        station['measurements'] = measurements.filter(pl.col('name') == station['name']).to_pandas()
-        if len(station['measurements']) > 0:
-            output[station['name']] = station
-    return output
+    return stations, measurements
 
 @st.cache_data(ttl=180)
 def write_weather_measurements_to_db(lookback=72):

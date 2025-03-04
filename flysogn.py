@@ -13,7 +13,7 @@ from matplotlib.colors import to_hex, LinearSegmentedColormap
 import collect_ogn
 import datetime
 import altair as alt
-
+import polars as pl
 # Set correct timezone
 import os, time
 os.environ['TZ'] = 'CET'
@@ -160,100 +160,113 @@ def interpolate_color(wind_speed, thresholds=[2, 8, 14], colors=['white', 'green
     norm_wind_speed = wind_speed / max(thresholds)
     return to_hex(cmap(np.clip(norm_wind_speed, 0, 1)))
 
-def build_live_map(data):
+def build_live_map(stations, measurements):
     """
-    data = st.weather_data
+    Build a live map using st.stations and st.measurements.
+    
+    Parameters:
+        stations (list[dict]): A list (or dict) of station information. Each station dict should contain at least 'name', 'lat', and 'lon'.
+        measurements (pl.DataFrame): A Polars DataFrame with weather measurements having a 'name' column that matches stations.
+        
+    Returns:
+        folium_static map object.
     """
     # Create a Folium map
     m = folium.Map(location=[61.26, 7.1195861], zoom_start=10, width='100%', height='100%')
-    # Add wind direction arrows to the map
-    for station_name, station in data.items():
-        # if measurements dont have wind data, skip
-        if 'wind_direction' not in station['measurements'].columns:
+    
+    # Iterate over stations
+    for station in stations:
+        # Filter measurements for this station using polars filtering then convert to pandas
+        station_measurements = (
+            measurements.filter(pl.col('name') == station['name'])
+                        .to_pandas()
+        )
+        # Skip if there are no measurements or if wind_direction is missing
+        if station_measurements.empty or 'wind_direction' not in station_measurements.columns:
             continue
-        latest_measurement = station['measurements'].iloc[0]
+        
+        latest_measurement = station_measurements.iloc[0]
         wind_speed = latest_measurement['wind_speed']
         wind_direction = latest_measurement['wind_direction']
-        wind_gust = latest_measurement.get('wind_gust')
+        
+        # If available, get wind_gust; otherwise, None
+        wind_gust = latest_measurement.get('wind_gust', None)
         if np.isnan(wind_speed):
             continue
 
-        # Create an arrow icon
+        # Create an arrow icon based on the latest measurement
         arrow_icon = create_arrow_icon(wind_speed, wind_gust, wind_direction)
 
         # Prepare time-series wind data for Vega chart
-        wind_chart_data = station['measurements']
-        wind_chart = create_wind_chart(wind_chart_data, station_name)
+        wind_chart = create_wind_chart(station_measurements, station['name'])
         if wind_chart is None:
             continue
-        # Add the arrow to the map
+
+        # Add the arrow marker with a popup containing the wind chart
         folium.Marker(
             [station['lat'], station['lon']],
             icon=arrow_icon,
             popup=folium.Popup(max_width=460).add_child(folium.VegaLite(wind_chart))
         ).add_to(m)
 
-    # Display latest positions of aircraft
+    # Display latest positions of aircraft from st.latest_pos (unchanged)
     for aircraft, pos in st.latest_pos.items():
-        # only plot aircrafts updated the last 1 hrs:
-        #print((datetime.datetime.now(datetime.timezone.utc) - pos['timestamp']).seconds )
-        if (datetime.datetime.now() - pos['timestamp']).seconds < 3600*4:
+        # Plot only aircraft updated the last 4 hours
+        if (datetime.datetime.now() - pos['timestamp']).seconds < 3600 * 4:
             pg_icon = folium.CustomIcon(
                 'pgicon.png',  # Replace with the path to your custom icon
-                icon_size=(20, 20)  # Adjust the size as needed
+                icon_size=(20, 20)
             )
             plane_icon = folium.CustomIcon(
                 'planeicon.png',  # Replace with the path to your custom icon
-                icon_size=(20, 20)  # Adjust the size as needed
+                icon_size=(20, 20)
             )
-            icon = pg_icon if "aircraft" in pos.get('beacon_type','') else plane_icon
+            icon = pg_icon if "aircraft" in pos.get('beacon_type', '') else plane_icon
             folium.Marker(
                 [pos['latitude'], pos['longitude']],
-                icon=icon,  # Use the custom icon here
+                icon=icon,
                 popup=f"<b>{aircraft}</b> altitude: {pos['altitude']:.0f} mas timestamp: {pos['timestamp']}"
             ).add_to(m)
 
+    # Add webcam markers
     webcams = [
         {
-            'name' : "Sogn skisenter parkering",
-            'url' : "http://sognskisenter.org/webkam/parkering/image.jpg",
-            'latitude' : 61.335706,
-            'longitude' : 7.217362,
+            'name': "Sogn skisenter parkering",
+            'url': "http://sognskisenter.org/webkam/parkering/image.jpg",
+            'latitude': 61.335706,
+            'longitude': 7.217362,
         },
         {
-            'name' : "Rødekorshytta",
-            'url' : "http://sognskisenter.org/webkam/rodekorshytta/image.jpg",
-            'latitude' : 61.342406, 
-            'longitude' : 7.184607,
+            'name': "Rødekorshytta",
+            'url': "http://sognskisenter.org/webkam/rodekorshytta/image.jpg",
+            'latitude': 61.342406,
+            'longitude': 7.184607,
         },
         {
-            'name' : "Sogn skisenter Mast 16",
-            'url' : "http://sognskisenter.org/webkam/mast16/image.jpg",
-            'latitude' : 61.339414,
-            'longitude' : 7.193114,
+            'name': "Sogn skisenter Mast 16",
+            'url': "http://sognskisenter.org/webkam/mast16/image.jpg",
+            'latitude': 61.339414,
+            'longitude': 7.193114,
         },
         {
-            'name' : "Rindabotn",
-            'url' : "https://cdn.norwaylive.tv/snapshots/6637b019-aeab-4a45-b671-f1f9bae39d09/kam1utsnitt2.jpg",
-            'latitude' : 61.289154,
-            'longitude' : 6.967829
+            'name': "Rindabotn",
+            'url': "https://cdn.norwaylive.tv/snapshots/6637b019-aeab-4a45-b671-f1f9bae39d09/kam1utsnitt2.jpg",
+            'latitude': 61.289154,
+            'longitude': 6.967829
         },
         {
-            'name' : "Turtagrø",
-            'url' : "https://turtagro.no/images/image_00001.jpg",
-            'latitude' : 61.5043928,
-            'longitude' : 7.8012656
+            'name': "Turtagrø",
+            'url': "https://turtagro.no/images/image_00001.jpg",
+            'latitude': 61.5043928,
+            'longitude': 7.8012656
         }
-        ]
-    # Iterate through the webcams and add markers with image popups
+    ]
     for webcam in webcams:
         folium.Marker(
             [webcam['latitude'], webcam['longitude']],
-            icon=folium.Icon(icon='camera', color='green'),  # Icon representing a camera
+            icon=folium.Icon(icon='camera', color='green'),
             popup=folium.Popup(f'<img src="{webcam["url"]}" alt="Webcam Image" width="300">', max_width=300)
         ).add_to(m)
-
-
 
     return folium_static(m)
 
@@ -332,21 +345,30 @@ def plot_wind_data(df_dict, selected_stations, data_type, yaxis_title, lookback_
 
     return fig
 
-def historical_wind_graphs(data):
-    # Lookback period slider
-    # Add columns for this
+def historical_wind_graphs(stations, measurements):
+    # Create two columns for the sliders and multi-select widget.
     col1, col2 = st.columns(2)
     with col1:
         lookback_hours = st.slider("Select lookback period in hours", 1, 48, 10)
-    
     with col2:
+        # Default station names for historical view.
         default_station_historical = ["Barten", "Modvaberget", "Tylderingen"]
-        selected_stations = st.multiselect("Select Stations", options=list(data.keys()), default=default_station_historical)
+        # Build a list of available station names from st.stations.
+        station_names = [station['name'] for station in stations]
+        selected_stations = st.multiselect("Select Stations", options=station_names, default=default_station_historical)
 
     if selected_stations:
-        # Filter data based on lookback period and plot
+        # Build a dictionary mapping each selected station name to its measurements.
+        measurement_by_station = {}
+        for station in selected_stations:
+            # Filter measurements for this station, convert to pandas DataFrame and drop duplicate times.
+            station_measurements = measurements.filter(pl.col("name") == station).to_pandas()
+            station_measurements.drop_duplicates(subset=['time'], inplace=True)
+            measurement_by_station[station] = {'measurements': station_measurements}
+
+        # Plot charts for different data types.
         for data_type, yaxis_title in [('wind_speed', 'Wind Strength (m/s)'), ('wind_direction', 'Wind Angle (degrees)')]:
-            fig = plot_wind_data(data, selected_stations, data_type, yaxis_title, lookback_hours)
+            fig = plot_wind_data(measurement_by_station, selected_stations, data_type, yaxis_title, lookback_hours)
             st.plotly_chart(fig, use_container_width=True)
 
 def show_windy():
@@ -373,115 +395,116 @@ def show_puretrack():
     components.iframe(url, height=600)
 
 
-def plot_sounding(data):
+def plot_sounding(stations, measurements):
     """
-    data = st.weather_data
+    Build a sounding plot from stations and measurements using Polars.
+
+    Parameters:
+      stations (list[dict]): List of station info dictionaries. Each station must have
+                             at least a 'name' and an altitude (provided as 'altitude' or 'elevation').
+      measurements (pl.DataFrame): A Polars DataFrame containing weather measurements.
+                                   It must have a 'name' column to match stations and a 'time' column.
+                                   
+    Renders:
+      A matplotlib plot via st.pyplot.
     """
-    times = []
-    for station_name, station in data.items():
-        df = station['measurements']
-        # Ensure the time column is datetime with timezone and convert to UTC
-        times.extend(df['time'])
+    import matplotlib.pyplot as plt
+    import scipy.interpolate
+    import numpy as np
+    import polars as pl
+    import datetime
+    import streamlit as st
 
-    times = pd.to_datetime(times, utc=True)  # Ensure that the list handles timezone as UTC
-    min_time = times.min()
-    max_time = times.max()
 
-    # Allow the user to select a datetime
+    # Get the overall minimum and maximum times from the measurements
+    min_time = measurements.select(pl.min("time")).item()
+    max_time = measurements.select(pl.max("time")).item()
+
+    # Let user select a datetime using the slider. Convert to python datetime.
     selected_datetime = st.slider(
         "Select datetime",
-        min_value=min_time.to_pydatetime(),
-        max_value=max_time.to_pydatetime(),
-        value=max_time.to_pydatetime(),
+        min_value=min_time,
+        max_value=max_time,
+        value=max_time,
         format="YYYY-MM-DD HH:mm:ss",
         step=datetime.timedelta(minutes=15),
     )
-    selected_datetime = selected_datetime.replace(tzinfo=datetime.timezone.utc)
-    
 
     temperatures = []
     altitudes = []
     station_names = []
 
-    for station_name, station in data.items():
-        df = station['measurements']
-
-        # Check if temperature is in df
-        if 'temperature' not in df.columns:
-            continue
-
-        # Get station altitude
+    # Loop over each station
+    for station in stations:
         altitude = station.get('altitude') or station.get('elevation')
         if altitude is None:
             continue
 
-        # Find the measurement closest to selected_datetime        
-        time_diff = abs(df['time'] - selected_datetime)
-        min_diff_idx = time_diff.idxmin()
-        closest_measurement = df.loc[min_diff_idx]
-
-        temperature = closest_measurement['temperature']
-        if np.isnan(temperature):
+        # Filter measurements for this station by matching the 'name' field.
+        df = measurements.filter(pl.col("name") == station["name"])
+        if df.is_empty() or "temperature" not in df.columns:
             continue
-        temperatures.append(temperature)
+
+        # Compute absolute difference between each measurement time and selected time.
+        df = df.with_columns(
+            time_diff=(pl.col("time")-pl.lit(selected_datetime))
+        )
+
+        # Get the row with the smallest time_diff.
+        closest = df.sort("time_diff").head(1)
+        temp = closest.select("temperature").item()
+        if temp is None or (isinstance(temp, float) and np.isnan(temp)):
+            continue
+
+        temperatures.append(temp)
         altitudes.append(altitude)
-        station_names.append(station_name)
+        station_names.append(station["name"])
 
     if len(temperatures) == 0:
         st.write("No temperature data available for the selected time.")
         return
 
-    # Convert to numpy arrays
+    # Convert lists to arrays and sort by altitude.
     temperatures = np.array(temperatures)
     altitudes = np.array(altitudes)
-
-    # Sort by altitude
+    station_names = np.array(station_names)
+    
     sorted_indices = np.argsort(altitudes)
     altitudes = altitudes[sorted_indices]
     temperatures = temperatures[sorted_indices]
-    station_names = np.array(station_names)[sorted_indices]
+    station_names = station_names[sorted_indices]
 
-    # Plotting
     fig, ax = plt.subplots(figsize=(6, 8))
     ax.plot(temperatures, altitudes, 'o', label='Observed Temperature', markerfacecolor='blue', markersize=8)
     
-    # Annotate each point with station name
     for temp, alt, name in zip(temperatures, altitudes, station_names):
         ax.annotate(name, (temp, alt), textcoords="offset points", xytext=(5,5), ha='left')
-    # Smooth line through the observed temperatures using spline interpolation
-
-    import scipy.interpolate
-    if len(temperatures) > 2:  # Requires at least three points for spline
+    
+    if len(temperatures) > 2:
         spline = scipy.interpolate.UnivariateSpline(altitudes, temperatures, k=1, s=5)
         altitude_smooth = np.linspace(altitudes[0], altitudes[-1], 50)
         temperature_smooth = spline(altitude_smooth)
         ax.plot(temperature_smooth, altitude_smooth, '-', color='red', label='Smoothed Temperature Curve')
-
-    # Compute DALR line
-    # Build reference DALR line around zero degrees at surface
-    Gamma_d = 0.0098  # degC per meter
+    
+    Gamma_d = 0.0098  # Dry Adiabatic Lapse Rate in °C/m
     Altitude_dalr = np.linspace(0, altitudes[-1], 10)
     Temperature_dalr = 0 - Gamma_d * (Altitude_dalr - 0)
-
-
-    # Offset the DALR line to cover the full temperature range
+    
     x_min, x_max = ax.get_xlim()
-    min_offset = min(-0, x_min)
-    max_offset = max(10, x_max+10)
-    offsets = np.arange(min_offset,max_offset, 1)  # Generates offsets from -10°C to +10°C with 5-degree spacing
-    # Plot multiple DALR lines with different offsets
+    min_offset = min(0, x_min)
+    max_offset = max(10, x_max + 10)
+    offsets = np.arange(min_offset, max_offset, 1)
     for offset in offsets:
-        Temperature_dalr_offset = Temperature_dalr + offset
-        ax.plot(Temperature_dalr_offset, Altitude_dalr, '--', color='grey', alpha=0.3) 
-    # Add label
+        ax.plot(Temperature_dalr + offset, Altitude_dalr, '--', color='grey', alpha=0.3)
     ax.plot([], [], '--', color='grey', alpha=0.5, label='Dry Adiabatic Lapse Rate')
-
-    ax.set_xlim(x_min, x_max) # reset to original limits before plotting DALR lines
+    
+    ax.set_xlim(x_min, x_max)
     ax.set_xlabel('Temperature (°C)')
     ax.set_ylabel('Altitude (m)')
     ax.set_title(f'Sounding at {selected_datetime}')
-    ax.grid()
+    ax.grid(True)
     ax.legend()
+    
     st.pyplot(fig)
 
 
@@ -499,7 +522,7 @@ if __name__ == "__main__":
         )
     if not hasattr(st, 'data'):
         with st.spinner('Wait for it...'):
-            st.weather_data = utils.get_weather_measurements()
+            st.stations, st.measurements = utils.get_weather_measurements()
 
     # start ogn collector
     if not hasattr(st, 'client_started'):
@@ -525,15 +548,15 @@ if __name__ == "__main__":
 
     # Content for the first tab
     with tab_livemap:
-        build_live_map(st.weather_data)
+        build_live_map(st.stations, st.measurements)
     with tab_sounding:
-        plot_sounding(st.weather_data)
+        plot_sounding(st.stations, st.measurements)
     
     with live_pilot_list:
         st.subheader("Latest aircraft positions")
         st.dataframe(st.latest_pos)
     with tab_history:
-        historical_wind_graphs(st.weather_data)
+        historical_wind_graphs(st.stations, st.measurements)
     with tab_livetrack:
         show_puretrack()
     with tab_windy:
